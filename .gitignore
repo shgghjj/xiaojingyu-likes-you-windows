@@ -1,0 +1,23 @@
+# 构建产物
+build/
+*.jar
+*.exe
+*.msi
+*.zip
+
+# Gradle
+.gradle/
+gradle-app.setting
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 本地配置
+local.properties
+
+# 用户数据（绝不提交）
+*.jks
+*.keystore
+secrets.properties
