@@ -31,12 +31,26 @@ class FileSandbox(
     /** 沙盒内路径解析 */
     fun sandboxFile(name: String): File = File(sandboxRoot, sanitizeName(name))
 
+    /** 规范化路径判断是否在沙盒内（带边界，防前缀绕过） */
+    private fun isInSandbox(file: File): Boolean {
+        val sandbox = sandboxRoot.canonicalFile.absolutePath.trimEnd(File.separatorChar)
+        val target = file.canonicalFile.absolutePath
+        return target == sandbox || target.startsWith("$sandbox${File.separatorChar}")
+    }
+
+    /** 判断是否在授权目录内（带边界） */
+    private fun isInEnabledDir(file: File): Boolean {
+        val target = file.canonicalFile.absolutePath
+        return enabledDirs.any { dir ->
+            val d = dir.canonicalFile.absolutePath.trimEnd(File.separatorChar)
+            target == d || target.startsWith("$d${File.separatorChar}")
+        }
+    }
+
     /** 读取文件内容（全盘文本，受开关控制） */
     fun readText(file: File, fileReadEnabled: Boolean): String? {
         if (!file.exists() || !file.isFile) return null
-        if (file.absolutePath.startsWith(sandboxRoot.absolutePath)) {
-            // 沙盒内：随便读
-        } else {
+        if (!isInSandbox(file)) {
             // 沙盒外：需要总开关
             if (!fileReadEnabled) return null
             if (!isAllowedExternalFile(file)) return null
@@ -49,9 +63,10 @@ class FileSandbox(
         return content.take(8000)
     }
 
-    /** 列出目录文件（沙盒内/外部白名单） */
+    /** 列出目录文件（仅沙盒内/授权目录） */
     fun listFiles(dir: File): List<File> {
-        val target = if (dir.absolutePath.isBlank() || !dir.exists()) sandboxRoot else dir
+        val inScope = isInSandbox(dir) || isInEnabledDir(dir)
+        val target = if (inScope && dir.exists()) dir else sandboxRoot
         return try {
             target.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() } ?: emptyList()
         } catch (_: Exception) { emptyList() }
@@ -72,9 +87,7 @@ class FileSandbox(
     /** 删除文件（沙盒内直接删进回收区；外部需授权目录） */
     fun deleteFile(file: File): Boolean {
         if (!file.exists()) return false
-        val inSandbox = file.absolutePath.startsWith(sandboxRoot.absolutePath)
-        val inEnabled = enabledDirs.any { file.absolutePath.startsWith(it.absolutePath) }
-        if (!inSandbox && !inEnabled) return false
+        if (!isInSandbox(file) && !isInEnabledDir(file)) return false
         return try {
             val backup = ledger.backupFile(file)
             file.delete()
@@ -86,9 +99,7 @@ class FileSandbox(
     /** 藏文件（改名加隐藏前缀；沙盒内自由，外部需授权） */
     fun hideFile(file: File): Boolean {
         if (!file.exists()) return false
-        val inSandbox = file.absolutePath.startsWith(sandboxRoot.absolutePath)
-        val inEnabled = enabledDirs.any { file.absolutePath.startsWith(it.absolutePath) }
-        if (!inSandbox && !inEnabled) return false
+        if (!isInSandbox(file) && !isInEnabledDir(file)) return false
         return try {
             val hidden = File(file.parentFile, ".白音藏起来的_${file.name}")
             if (file.renameTo(hidden)) {

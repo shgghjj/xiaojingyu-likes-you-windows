@@ -53,6 +53,7 @@ class ConfigStore(private val baseDir: File = File(System.getProperty("user.home
 
     fun get(): AppConfig = cached
 
+    @Synchronized
     fun update(transform: (AppConfig) -> AppConfig) {
         cached = transform(cached)
         save()

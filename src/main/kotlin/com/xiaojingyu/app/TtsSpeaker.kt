@@ -13,6 +13,17 @@ object TtsSpeaker {
 
     private val scriptCache = File(System.getProperty("java.io.tmpdir"), "xiaojingyu_tts.ps1")
 
+    /** 净化文本，杜绝 PowerShell 注入（公开供测试） */
+    fun sanitizeForSpeech(text: String): String = text
+        .replace(Regex("""[^0-9A-Za-z\u4e00-\u9fff\u3000-\u303f\uff00-\uffef，。！？、；：""''—…\s]"""), "")
+        .replace("'", "")
+        .replace("\"", "")
+        .replace("\$", "")
+        .replace("`", "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .take(300)
+
     /**
      * 朗读文本。
      * @param text 要朗读的文本
@@ -21,19 +32,15 @@ object TtsSpeaker {
      */
     suspend fun speak(text: String, speed: Int = 0, volume: Int = 90) {
         if (text.isBlank()) return
-        val clean = text
-            .replace("（", "，").replace("）", "，")
-            .replace("(", "，").replace(")", "，")
-            .replace(Regex("[*_#`【】\\[\\]{}|]"), "")
-            .replace(Regex("\\s+"), " ")
-            .take(400)
+        // 严格清洗：只保留安全字符，彻底杜绝 PowerShell 注入
+        val clean = sanitizeForSpeech(text)
         if (clean.isBlank()) return
         val script = """
             Add-Type -AssemblyName System.Speech
             ${'$'}speech = New-Object System.Speech.Synthesis.SpeechSynthesizer
             ${'$'}speech.Rate = $speed
             ${'$'}speech.Volume = $volume
-            ${'$'}speech.Speak("$clean")
+            ${'$'}speech.Speak('$clean')
             ${'$'}speech.Dispose()
         """.trimIndent()
         scriptCache.writeText(script)

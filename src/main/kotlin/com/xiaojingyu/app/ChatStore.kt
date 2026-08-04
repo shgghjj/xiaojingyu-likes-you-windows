@@ -26,20 +26,24 @@ class ChatStore(private val dataDir: File) {
     @Volatile
     private var messages: List<StoredMessage> = load()
 
-    fun all(): List<StoredMessage> = messages
+    fun all(): List<StoredMessage> = synchronized(this) { messages }
 
+    @Synchronized
     fun add(content: String, isUser: Boolean, reasoning: String? = null, imagePath: String? = null) {
         messages = messages + StoredMessage(content, isUser, System.currentTimeMillis(), reasoning, imagePath)
         save()
     }
 
+    @Synchronized
     fun clear() {
         messages = emptyList()
         save()
     }
 
-    fun asChatMessages(): List<ChatMessage> = messages.map {
-        ChatMessage(content = it.content, isUser = it.isUser, timestamp = java.time.Instant.ofEpochMilli(it.timestamp), reasoning = it.reasoning)
+    fun asChatMessages(): List<ChatMessage> = synchronized(this) {
+        messages.map {
+            ChatMessage(content = it.content, isUser = it.isUser, timestamp = java.time.Instant.ofEpochMilli(it.timestamp), reasoning = it.reasoning)
+        }
     }
 
     private fun save() {

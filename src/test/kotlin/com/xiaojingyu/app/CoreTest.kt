@@ -119,4 +119,44 @@ class CoreTest {
         // 便签应该写入了沙盒
         assertTrue(File(testDir, "sandbox/白音的便签.txt").exists())
     }
+
+    @Test
+    fun testSandboxPrefixTraversalBlocked() {
+        // 模拟沙盒边界：/tmp/xjytest/sandbox 是沙盒，sandbox_evil 是沙盒外
+        val ledger = ActionLedger(testDir)
+        val sandboxRoot = File(testDir, "sandbox").apply { mkdirs() }
+        val sandbox = FileSandbox(ledger, sandboxRoot)
+        val evilDir = File(testDir, "sandbox_evil").apply { mkdirs() }
+        val evilFile = File(evilDir, "secret.txt").apply { writeText("秘密") }
+        // 即使开了读开关，sandbox_evil 不在沙盒内也不在授权目录，但 readText 走的是全盘开关……
+        // 黑名单不拦它，所以这里验证"沙盒判断函数"通过 listFiles 不越界：
+        val listed = sandbox.listFiles(evilDir)
+        // listFiles 应该回落到 sandboxRoot，不列 evilDir
+        assertTrue(listed.none { it.name == "secret.txt" }, "listFiles 不应列出沙盒外的文件")
+    }
+
+    @Test
+    fun testTtsInjectionSanitized() {
+        // 恶意文本中的注入字符必须被剥离
+        val evil = "你好 \$(rm -rf /) ; Get-Process `powershell -c evil"
+        val clean = TtsSpeaker.sanitizeForSpeech(evil)
+        assertTrue(!clean.contains("\$"), "不应残留 \$")
+        assertTrue(!clean.contains(";"), "不应残留分号")
+        assertTrue(!clean.contains("`"), "不应残留反引号")
+        assertTrue(!clean.contains("\""), "不应残留双引号")
+    }
+
+    @Test
+    fun testLedgerHideRestore() {
+        val ledger = ActionLedger(testDir)
+        val sandboxRoot = File(testDir, "sandbox2").apply { mkdirs() }
+        val sandbox = FileSandbox(ledger, sandboxRoot)
+        val f = sandbox.writeFile("note.txt", "内容")!!
+        assertTrue(sandbox.hideFile(f))
+        val hidden = File(sandboxRoot, ".白音藏起来的_note.txt")
+        assertTrue(hidden.exists())
+        // 一键恢复应该把隐藏文件恢复原名
+        assertTrue(ledger.restoreAll() >= 1)
+        assertTrue(File(sandboxRoot, "note.txt").exists(), "恢复后原文件应存在")
+    }
 }

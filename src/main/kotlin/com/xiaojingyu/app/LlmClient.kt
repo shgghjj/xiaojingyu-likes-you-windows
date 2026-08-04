@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -44,15 +47,8 @@ object LlmClient {
         showThoughts: Boolean = false
     ): Flow<StreamEvent> = flow {
         val baseUrl = config.effectiveBaseUrl.trimEnd('/')
-        val body = buildString {
-            append("{\"model\":\"${config.currentModel}\",\"messages\":[")
-            append(messages.joinToString(",") { m ->
-                """{"role":"${m.role}","content":"${m.content.replace("\"", "\\\"").replace("\n", "\\n")}"}"""
-            })
-            append("],\"stream\":true,\"max_tokens\":$maxTokens")
-            if (temperature != null) append(",\"temperature\":$temperature")
-            append("}")
-        }
+        val body = buildRequestBody(messages, config, maxTokens, temperature, stream = true)
+
         val req = Request.Builder()
             .url("$baseUrl/v1/chat/completions")
             .post(body.toRequestBody("application/json".toMediaType()))
@@ -106,13 +102,7 @@ object LlmClient {
         temperature: Double = 0.4
     ): String {
         val baseUrl = config.effectiveBaseUrl.trimEnd('/')
-        val body = buildString {
-            append("{\"model\":\"${config.currentModel}\",\"messages\":[")
-            append(messages.joinToString(",") { m ->
-                """{"role":"${m.role}","content":"${m.content.replace("\"", "\\\"").replace("\n", "\\n")}"}"""
-            })
-            append("],\"stream\":false,\"max_tokens\":$maxTokens,\"temperature\":$temperature}")
-        }
+        val body = buildRequestBody(messages, config, maxTokens, temperature, stream = false)
         val req = Request.Builder()
             .url("$baseUrl/v1/chat/completions")
             .post(body.toRequestBody("application/json".toMediaType()))
@@ -128,5 +118,32 @@ object LlmClient {
                     ?.get("content")?.jsonPrimitive?.contentOrNull ?: ""
             }
         } catch (_: Exception) { "" }
+    }
+
+    /**
+     * 用 kotlinx.serialization 构建请求体——彻底避免手拼 JSON 的转义问题。
+     */
+    private fun buildRequestBody(
+        messages: List<PromptMessage>,
+        config: ApiConfiguration,
+        maxTokens: Int,
+        temperature: Double?,
+        stream: Boolean
+    ): String {
+        val obj = buildJsonObject {
+            put("model", config.currentModel.ifBlank { "gpt-4o-mini" })
+            put("messages", buildJsonArray {
+                messages.forEach { m ->
+                    add(buildJsonObject {
+                        put("role", m.role)
+                        put("content", m.content)
+                    })
+                }
+            })
+            put("stream", stream)
+            put("max_tokens", maxTokens)
+            if (temperature != null) put("temperature", temperature)
+        }
+        return obj.toString()
     }
 }

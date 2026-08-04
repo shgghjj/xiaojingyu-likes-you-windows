@@ -70,9 +70,16 @@ object Live2DStageServer {
 
     private fun handle(exchange: HttpExchange) {
         try {
-            val path = exchange.requestURI.path.let { if (it == "/") "/index.html" else it }
+            val rawPath = exchange.requestURI.path.let { if (it == "/") "/index.html" else it }
             val dir = baseDir ?: return
-            val file = java.io.File(dir, path.trimStart('/'))
+            // 路径遍历防护：规范化后必须在 baseDir 内
+            val base = dir.canonicalFile
+            val file = java.io.File(base, rawPath.trimStart('/')).canonicalFile
+            if (!file.absolutePath.startsWith(base.absolutePath + java.io.File.separator) && file != base) {
+                exchange.sendResponseHeaders(403, -1)
+                exchange.close()
+                return
+            }
             if (file.exists() && file.isFile) {
                 val bytes = file.readBytes()
                 val mime = when (file.extension.lowercase()) {

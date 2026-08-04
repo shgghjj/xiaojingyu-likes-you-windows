@@ -78,14 +78,14 @@ class ActionLedger(private val dataDir: File) {
     @Synchronized
     fun restoreAll(): Int {
         var restored = 0
-        for (entry in entries) {
-            if (!entry.canRestore || entry.restored) continue
+        val updated = entries.mapIndexed { index, entry ->
+            if (!entry.canRestore || entry.restored) return@mapIndexed entry
             val ok = when {
                 // 有备份：恢复原文件
-                entry.backupPath != null -> {
+                entry.backupPath != null && entry.originalPath != null -> {
                     val backup = File(entry.backupPath)
-                    val original = entry.originalPath?.let { File(it) }
-                    if (backup.exists() && original != null) {
+                    val original = File(entry.originalPath)
+                    if (backup.exists()) {
                         try {
                             original.parentFile?.mkdirs()
                             backup.copyTo(original, overwrite = true)
@@ -93,20 +93,29 @@ class ActionLedger(private val dataDir: File) {
                         } catch (_: Exception) { false }
                     } else false
                 }
-                // 新建的文件：删除
-                entry.type == "CREATE" -> {
-                    val f = entry.originalPath?.let { File(it) }
-                    if (f != null && f.exists()) {
+                // 新建的文件：删除（撤销创建）
+                entry.type == "CREATE" && entry.originalPath != null -> {
+                    val f = File(entry.originalPath)
+                    if (f.exists()) {
                         try { f.delete() } catch (_: Exception) { false }
                     } else true
+                }
+                // 隐藏/改名：改回原名字
+                entry.type == "HIDE" && entry.originalPath != null && entry.newPath != null -> {
+                    val hidden = File(entry.newPath)
+                    val original = File(entry.originalPath)
+                    if (hidden.exists()) {
+                        try { hidden.renameTo(original) } catch (_: Exception) { false }
+                    } else if (!original.exists()) false else true
                 }
                 else -> false
             }
             if (ok) {
-                entries[entries.indexOf(entry)] = entry.copy(restored = true)
                 restored++
-            }
+                entry.copy(restored = true)
+            } else entry
         }
+        entries = updated.toMutableList()
         save()
         return restored
     }

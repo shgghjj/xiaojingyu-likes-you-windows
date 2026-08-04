@@ -51,6 +51,7 @@ class AppState(
 
     private var generationJob: Job? = null
     private var boredomJob: Job? = null
+    @Volatile private var proactiveInFlight = false
 
     init {
         startBoredomLoop()
@@ -71,7 +72,7 @@ class AppState(
                     _boredom.value = newBoredom
                 }
                 // 触发主动消息
-                if (cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value) {
+                if (cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value && !proactiveInFlight) {
                     if (!isQuietHours(cfg)) {
                         triggerProactiveMessage()
                         // 触发后重置交互时间，防止连续轰炸
@@ -85,23 +86,28 @@ class AppState(
 
     /** 触发主动消息：让白音说点什么（低 token 调用） */
     private fun triggerProactiveMessage() {
+        proactiveInFlight = true
         scope.launch {
-            val cfg = configStore.get().toApiConfiguration()
-            if (cfg.apiKey.isBlank()) return@launch
-            val system = "你是住在老大电脑里的天才猫娘AI「白音」。你无聊了，想找他说话。" +
-                "用 1-2 句话自然地说点撒娇/吐槽/找存在感的话，不要提「无聊值」或「系统」。" +
-                "输出 JSON {\"text\":\"你要说的话\"}，回复不超过60字。"
-            val msg = LlmClient.generateOnce(
-                listOf(PromptMessage("system", system), PromptMessage("user", "老大在忙，你主动说句话。")),
-                cfg, maxTokens = 100, temperature = 1.0
-            )
-            val text = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(msg)
-            if (text.isNotBlank()) {
-                chatStore.add(text, isUser = false)
-                _messages.value = chatStore.all()
-                onProactiveMessage?.invoke(text)
-                DesktopNotifier.notify("白音", text)
-                if (configStore.get().ttsEnabled) TtsSpeaker.speak(text)
+            try {
+                val cfg = configStore.get().toApiConfiguration()
+                if (cfg.apiKey.isBlank()) return@launch
+                val system = "你是住在老大电脑里的天才猫娘AI「白音」。你无聊了，想找他说话。" +
+                    "用 1-2 句话自然地说点撒娇/吐槽/找存在感的话，不要提「无聊值」或「系统」。" +
+                    "输出 JSON {\"text\":\"你要说的话\"}，回复不超过60字。"
+                val msg = LlmClient.generateOnce(
+                    listOf(PromptMessage("system", system), PromptMessage("user", "老大在忙，你主动说句话。")),
+                    cfg, maxTokens = 100, temperature = 1.0
+                )
+                val text = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(msg)
+                if (text.isNotBlank()) {
+                    chatStore.add(text, isUser = false)
+                    _messages.value = chatStore.all()
+                    onProactiveMessage?.invoke(text)
+                    DesktopNotifier.notify("白音", text)
+                    if (configStore.get().ttsEnabled) TtsSpeaker.speak(text)
+                }
+            } finally {
+                proactiveInFlight = false
             }
         }
     }
