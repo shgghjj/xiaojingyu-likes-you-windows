@@ -97,10 +97,59 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 8.dp))
 
                             Text(I18n.get("api_key_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("sk-...") })
+                            OutlinedTextField(
+                                apiKey, { apiKey = it },
+                                Modifier.fillMaxWidth(), singleLine = true,
+                                placeholder = { Text("sk-...", color = Color(0xFF6E6E7A)) },
+                                textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC)),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color(0xFFE8E8EC),
+                                    unfocusedTextColor = Color(0xFFE8E8EC),
+                                    cursorColor = Color(0xFF6EC6F0),
+                                    focusedBorderColor = Color(0xFF6EC6F0),
+                                    unfocusedBorderColor = Color(0xFF252530),
+                                    focusedContainerColor = Color(0xFF1A1A22),
+                                    unfocusedContainerColor = Color(0xFF1A1A22)
+                                )
+                            )
                             Spacer(Modifier.height(10.dp))
                             Text(I18n.get("model_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), singleLine = true)
+                            // 模型下拉选择
+                            val deepseekModels = listOf(
+                                "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner",
+                                "deepseek-v3", "deepseek-coder", "deepseek-r1"
+                            )
+                            var modelExpanded by remember { mutableStateOf(false) }
+                            Box {
+                                OutlinedTextField(
+                                    value = model,
+                                    onValueChange = { model = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC)),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFE8E8EC),
+                                        unfocusedTextColor = Color(0xFFE8E8EC),
+                                        cursorColor = Color(0xFF6EC6F0),
+                                        focusedBorderColor = Color(0xFF6EC6F0),
+                                        unfocusedBorderColor = Color(0xFF252530),
+                                        focusedContainerColor = Color(0xFF1A1A22),
+                                        unfocusedContainerColor = Color(0xFF1A1A22)
+                                    )
+                                )
+                                // 透明点击层打开下拉
+                                Box(
+                                    modifier = Modifier.matchParentSize().clickable { modelExpanded = true }
+                                )
+                                DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
+                                    deepseekModels.forEach { m ->
+                                        DropdownMenuItem(
+                                            text = { Text(m, fontSize = 13.sp) },
+                                            onClick = { model = m; modelExpanded = false }
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(Modifier.height(14.dp))
 
                             SwitchRow(I18n.get("proactive_label", lang), I18n.get("proactive_desc", lang), proactive) { proactive = it }
@@ -127,7 +176,23 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
 
                             Text(I18n.get("gemini_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            OutlinedTextField(geminiKey, { geminiKey = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(I18n.get("gemini_hint", lang)) })
+                            OutlinedTextField(
+                                value = geminiKey,
+                                onValueChange = { geminiKey = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                placeholder = { Text(I18n.get("gemini_hint", lang), color = Color(0xFF6E6E7A)) },
+                                textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC)),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color(0xFFE8E8EC),
+                                    unfocusedTextColor = Color(0xFFE8E8EC),
+                                    cursorColor = Color(0xFF6EC6F0),
+                                    focusedBorderColor = Color(0xFF6EC6F0),
+                                    unfocusedBorderColor = Color(0xFF252530),
+                                    focusedContainerColor = Color(0xFF1A1A22),
+                                    unfocusedContainerColor = Color(0xFF1A1A22)
+                                )
+                            )
                             Spacer(Modifier.height(14.dp))
 
                             Text(I18n.get("auth_dir_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
