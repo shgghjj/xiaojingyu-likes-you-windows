@@ -31,6 +31,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
     var showFileConfirm by remember { mutableStateOf(false) }
     var geminiKey by remember { mutableStateOf(config.geminiApiKey) }
     var ttsEnabled by remember { mutableStateOf(config.ttsEnabled && !isDeepSeek) }
+    var language by remember { mutableStateOf(config.language) }
     var autoAction by remember { mutableStateOf(config.autoActionEnabled) }
     var fullAutonomy by remember { mutableStateOf(config.fullAutonomyEnabled) }
 
@@ -84,6 +85,20 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                 ) {
                     when (tab) {
                         0 -> {
+                            Text("界面语言 / Language", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { language = "zh" }) {
+                                    RadioButton(selected = language == "zh", onClick = { language = "zh" })
+                                    Text("中文", color = Color(0xFFE8E8EC), fontSize = 14.sp)
+                                }
+                                Spacer(Modifier.width(20.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { language = "en" }) {
+                                    RadioButton(selected = language == "en", onClick = { language = "en" })
+                                    Text("English", color = Color(0xFFE8E8EC), fontSize = 14.sp)
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 8.dp))
+
                             Text("DeepSeek API Key", color = Color(0xFF9A9AA4), fontSize = 12.sp)
                             OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("sk-...") })
                             Spacer(Modifier.height(10.dp))
@@ -186,7 +201,8 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 geminiApiKey = geminiKey.trim(),
                                 ttsEnabled = if (isDeepSeek) false else ttsEnabled,
                                 autoActionEnabled = autoAction, fullAutonomyEnabled = fullAutonomy,
-                                authorizedDirs = authDirs
+                                authorizedDirs = authDirs,
+                                language = language
                             )
                         }
                         onDismiss()
@@ -195,6 +211,8 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
             }
         }
     }
+    // 保存逻辑在下面
+    // ... existing save code in confirmButton ...
 
     if (showFileConfirm) {
         AlertDialog(

@@ -27,7 +27,8 @@ data class AppConfig(
     val dailyProactiveLimit: Int = 10,
     val ttsEnabled: Boolean = false,  // 语音朗读开关（默认关闭）
     val authorizedDirs: List<String> = emptyList(),  // 用户授权的额外工作目录
-    val licenseAccepted: Boolean = false  // 首次启动许可是否已接受
+    val licenseAccepted: Boolean = false,  // 首次启动许可是否已接受
+    val language: String = "zh"  // 界面语言 zh/en
 ) {
     fun toApiConfiguration(): ApiConfiguration = ApiConfiguration(
         mainApi = "openai",
