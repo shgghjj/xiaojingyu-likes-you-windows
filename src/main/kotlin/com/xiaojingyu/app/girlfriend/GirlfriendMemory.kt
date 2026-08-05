@@ -74,8 +74,8 @@ data class GirlfriendState(
 class GirlfriendMemoryStore(private val dataDir: java.io.File) {
 
     companion object {
-        /** 每 3 分钟增加 1 点，约 3 小时达到主动触发阈值 60。 */
-        const val BOREDOM_SECONDS_PER_POINT = 180L
+        /** 每 5 分钟增加 1 点，约 5 小时达到主动触发阈值 60。 */
+        const val BOREDOM_SECONDS_PER_POINT = 300L
         const val BOREDOM_PROACTIVE_THRESHOLD = 60
     }
 

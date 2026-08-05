@@ -57,15 +57,17 @@ class AppState(
         startBoredomLoop()
     }
 
-    /** 无聊值循环：每 3 分钟 +1，达到阈值且开启主动联系时发消息 */
+    /** 无聊值循环：每 5 分钟 +1，API 未配不增长 */
     private fun startBoredomLoop() {
         boredomJob?.cancel()
         boredomJob = scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(60_000L)
                 val cfg = configStore.get()
+                // API 没配置时不涨无聊值
+                if (cfg.apiKey.isBlank()) continue
                 val elapsedSec = (System.currentTimeMillis() - girlfriendState.lastInteractionTime) / 1000
-                val newBoredom = (elapsedSec / 180).toInt().coerceIn(0, 100)
+                val newBoredom = (elapsedSec / 300).toInt().coerceIn(0, 100)
                 if (newBoredom != girlfriendState.boredom) {
                     girlfriendState = girlfriendState.copy(boredom = newBoredom)
                     memoryStore.save(girlfriendState)
@@ -75,7 +77,6 @@ class AppState(
                 if (cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value && !proactiveInFlight) {
                     if (!isQuietHours(cfg)) {
                         triggerProactiveMessage()
-                        // 触发后重置交互时间，防止连续轰炸
                         girlfriendState = girlfriendState.copy(lastInteractionTime = System.currentTimeMillis())
                         memoryStore.save(girlfriendState)
                     }
