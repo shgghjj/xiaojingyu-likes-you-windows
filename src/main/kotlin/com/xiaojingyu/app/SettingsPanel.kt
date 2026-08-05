@@ -1,8 +1,10 @@
 package com.xiaojingyu.app
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,14 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogWindow
-import androidx.compose.ui.window.rememberDialogState
 import java.awt.FileDialog
+import java.io.File
 
 @Composable
 fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () -> Unit) {
     val config by appState.config.collectAsState()
-    val isDeepSeek = config.chatCompletionSource == "deepseek" || config.chatCompletionSource.isBlank()
+    val isDeepSeek = config.chatCompletionSource.isBlank() || config.chatCompletionSource.lowercase() == "deepseek"
+        || config.currentModel.lowercase().contains("deepseek")
     var tab by remember { mutableStateOf(0) }
 
     var apiKey by remember { mutableStateOf(config.apiKey) }
@@ -40,19 +42,31 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
     var facts by remember { mutableStateOf(appState.factsSnapshot()) }
     var memories by remember { mutableStateOf(appState.memoriesSnapshot()) }
 
-    DialogWindow(
-        onCloseRequest = onDismiss,
-        state = rememberDialogState(),
-        title = "设置",
-        resizable = false
+    // 全屏覆盖层
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = Color(0xFF14141A)
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .fillMaxHeight(0.85f)
+                .clickable(enabled = false) {},
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF14141A),
+            tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 标签栏 - 固定顶部
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                // 标题
+                Text("设置", color = Color(0xFFE8E8EC), fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    modifier = Modifier.padding(20.dp, 16.dp, 20.dp, 4.dp))
+
+                // 标签栏
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                     TabButton("API 与功能", tab == 0) { tab = 0 }
                     Spacer(Modifier.width(6.dp))
                     TabButton("破甲词库", tab == 1) { tab = 1 }
@@ -61,9 +75,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                 }
                 HorizontalDivider(color = Color(0xFF252530))
 
-                // 内容区 - 可滚动
+                // 内容区
                 Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp)
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)
                 ) {
                     when (tab) {
                         0 -> {
@@ -76,7 +90,6 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
 
                             SwitchRow("主动联系", "无聊时主动给你发消息", proactive) { proactive = it }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
-                            // TTS: DeepSeek 不支持
                             if (isDeepSeek) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                     Column(Modifier.weight(1f)) {
@@ -93,29 +106,25 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 if (it) showFileConfirm = true else fileRead = false
                             }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
-                            SwitchRow("自动行动", "无聊时自主做低风险事（写便签等）", autoAction) { autoAction = it }
+                            SwitchRow("自动行动", "无聊时自主做低风险事", autoAction) { autoAction = it }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
-                            SwitchRow("完全自主模式", "像编码助手一样自主行动（需谨慎）", fullAutonomy) { fullAutonomy = it }
+                            SwitchRow("完全自主模式", "像编码助手一样自主行动", fullAutonomy) { fullAutonomy = it }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
 
-                            Text("Gemini Vision API Key（图片理解备用）", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                            Text("Gemini Vision API Key", color = Color(0xFF9A9AA4), fontSize = 12.sp)
                             OutlinedTextField(geminiKey, { geminiKey = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("AIza...") })
                             Spacer(Modifier.height(14.dp))
 
                             Text("授权工作目录", color = Color(0xFF9A9AA4), fontSize = 12.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(authDirInput, { authDirInput = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("C:\\Projects\\myrepo") })
+                                OutlinedTextField(authDirInput, { authDirInput = it }, Modifier.weight(1f), singleLine = true)
                                 Spacer(Modifier.width(6.dp))
-                                Button(onClick = {
-                                    if (authDirInput.isNotBlank()) { authDirs = authDirs + authDirInput.trim(); authDirInput = "" }
-                                }) { Text("添加", fontSize = 12.sp) }
+                                Button(onClick = { if (authDirInput.isNotBlank()) { authDirs = authDirs + authDirInput; authDirInput = "" } }) { Text("添加", fontSize = 12.sp) }
                             }
                             authDirs.forEach { dir ->
-                                Surface(color = Color(0xFF1A1A20), shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(dir, color = Color(0xFF9A9AA4), fontSize = 12.sp, modifier = Modifier.weight(1f).padding(8.dp))
-                                        TextButton(onClick = { authDirs = authDirs - dir }) { Text("移除", fontSize = 11.sp, color = Color(0xFFE54860)) }
-                                    }
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).background(Color(0xFF1A1A20), MaterialTheme.shapes.small)) {
+                                    Text(dir, color = Color(0xFF9A9AA4), fontSize = 12.sp, modifier = Modifier.weight(1f).padding(8.dp))
+                                    TextButton(onClick = { authDirs = authDirs - dir }) { Text("移除", fontSize = 11.sp, color = Color(0xFFE54860)) }
                                 }
                             }
                         }
@@ -134,13 +143,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             OutlinedTextField(customJailbreak, { customJailbreak = it }, Modifier.fillMaxWidth().height(120.dp), placeholder = { Text("粘贴你的破甲词库内容…") })
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                 OutlinedButton(onClick = {
-                                    val dialog = FileDialog(java.awt.Frame(), "选择破甲词库文件", FileDialog.LOAD)
-                                    dialog.file = "*.txt"
-                                    dialog.isVisible = true
-                                    if (dialog.file != null) {
-                                        val f = java.io.File(dialog.directory, dialog.file)
-                                        try { customJailbreak = f.readText().take(5000) } catch (_: Exception) {}
-                                    }
+                                    val d = FileDialog(java.awt.Frame(), "选择破甲词库文件", FileDialog.LOAD)
+                                    d.file = "*.txt"; d.isVisible = true
+                                    if (d.file != null) try { customJailbreak = File(d.directory, d.file).readText().take(5000) } catch (_: Exception) {}
                                 }, modifier = Modifier.height(32.dp)) { Text("从文件导入", fontSize = 12.sp) }
                             }
                         }
@@ -162,7 +167,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                     }
                 }
 
-                // 底部按钮 - 固定底部
+                // 底部按钮
                 HorizontalDivider(color = Color(0xFF252530))
                 Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("取消", color = Color(0xFF8E8E9A)) }
@@ -174,12 +179,10 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             it.copy(
                                 apiKey = apiKey.trim(),
                                 currentModel = model.trim().ifBlank { it.currentModel },
-                                proactiveEnabled = proactive,
-                                fileReadEnabled = fileRead,
+                                proactiveEnabled = proactive, fileReadEnabled = fileRead,
                                 geminiApiKey = geminiKey.trim(),
                                 ttsEnabled = if (isDeepSeek) false else ttsEnabled,
-                                autoActionEnabled = autoAction,
-                                fullAutonomyEnabled = fullAutonomy,
+                                autoActionEnabled = autoAction, fullAutonomyEnabled = fullAutonomy,
                                 authorizedDirs = authDirs
                             )
                         }
@@ -194,7 +197,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
         AlertDialog(
             onDismissRequest = { showFileConfirm = false },
             title = { Text("允许白音读取你的文件？", color = Color(0xFFE8E8EC)) },
-            text = { Text("开启后她可以读取你电脑上任何位置的文本文件内容。\n\n你可以随时在设置中一键关闭。", color = Color(0xFF9A9AA4)) },
+            text = { Text("开启后她可以读取你电脑上任何位置的文本文件。\n\n随时可在设置中一键关闭。", color = Color(0xFF9A9AA4)) },
             confirmButton = { TextButton(onClick = { fileRead = true; showFileConfirm = false }) { Text("确认开启", color = Color(0xFF6EC6F0)) } },
             dismissButton = { TextButton(onClick = { showFileConfirm = false }) { Text("取消", color = Color(0xFF8E8E9A)) } },
             containerColor = Color(0xFF14141A)
