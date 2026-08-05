@@ -255,7 +255,9 @@ class AppState(
             )
             val clean = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(summary)
             if (clean.isNotBlank()) {
-                // 用摘要替换被总结的消息，标记为系统消息
+                // 竞态防护：异步期间消息可能已变（用户新消息/主动消息），重新校验再替换
+                val current = chatStore.all()
+                if (current.size < msgs.size) return@launch // 已被其他总结替换过
                 val summaryMsg = StoredMessage("📝 历史摘要: $clean", false, System.currentTimeMillis())
                 chatStore.replaceRange(splitIdx, summaryMsg)
                 _messages.value = chatStore.all()

@@ -234,13 +234,26 @@ private fun ChatPanel(appState: AppState, lang: String) {
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text(I18n.get("send_placeholder", lang), color = Color(0xFF6E6E7A)) },
-                singleLine = true,
+                singleLine = false,
+                minLines = 1,
+                maxLines = 4,
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC), fontSize = 14.sp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color(0xFFE8E8EC),
+                    unfocusedTextColor = Color(0xFFE8E8EC),
+                    cursorColor = Color(0xFF6EC6F0),
                     focusedBorderColor = Color(0xFF6EC6F0),
                     unfocusedBorderColor = Color.Transparent,
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent
-                )
+                ),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = {
+                    if (input.isNotBlank() && !generating) {
+                        appState.sendMessage(input)
+                        input = ""
+                    }
+                })
             )
             Spacer(Modifier.width(8.dp))
             IconButton(
