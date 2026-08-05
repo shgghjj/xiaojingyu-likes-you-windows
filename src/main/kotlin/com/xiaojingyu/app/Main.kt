@@ -1,10 +1,11 @@
-﻿package com.xiaojingyu.app
+package com.xiaojingyu.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -234,8 +235,8 @@ private fun ChatPanel(appState: AppState, lang: String) {
             state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            items(messages) { msg ->
-                MessageBubble(msg)
+            itemsIndexed(messages) { index, msg ->
+                MessageBubble(msg, appState = appState, index = index)
             }
             if (streaming.isNotEmpty()) {
                 item {
@@ -304,7 +305,7 @@ private fun ChatPanel(appState: AppState, lang: String) {
 }
 
 @Composable
-private fun MessageBubble(msg: StoredMessage) {
+private fun MessageBubble(msg: StoredMessage, appState: AppState, index: Int) {
     val isUser = msg.isUser
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -326,6 +327,9 @@ private fun MessageBubble(msg: StoredMessage) {
                 lineHeight = 22.sp,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
             )
+        }
+        IconButton(onClick = { appState.deleteMessage(index) }, modifier = Modifier.size(14.dp)) {
+            Text("𐄂", color = Color(0xFFE54860), fontSize = 9.sp)
         }
     }
 }
