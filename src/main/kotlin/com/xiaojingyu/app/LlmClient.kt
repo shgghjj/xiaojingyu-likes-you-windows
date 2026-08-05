@@ -38,6 +38,15 @@ object LlmClient {
             .build()
     }
 
+    @Volatile
+    private var currentCall: okhttp3.Call? = null
+
+    /** 中断当前进行的请求（打断生成用）。 */
+    fun cancelCurrentCall() {
+        currentCall?.cancel()
+        currentCall = null
+    }
+
     /** 流式生成。返回 Token/ThinkingToken/Complete/Error 事件流。 */
     fun generateStream(
         messages: List<PromptMessage>,
@@ -58,8 +67,10 @@ object LlmClient {
 
         val accumulated = StringBuilder()
         val thinking = StringBuilder()
+        val call = client.newCall(req)
+        currentCall = call
         try {
-            client.newCall(req).execute().use { response ->
+            call.execute().use { response ->
                 if (!response.isSuccessful) {
                     val err = response.body?.string() ?: ""
                     emit(StreamEvent.Error("API ${response.code}: ${err.take(200)}"))
@@ -90,7 +101,11 @@ object LlmClient {
             }
             emit(StreamEvent.Complete(accumulated.toString(), thinking.toString()))
         } catch (e: Exception) {
-            emit(StreamEvent.Error(e.message ?: "网络错误"))
+            if (call.isCanceled()) {
+                emit(StreamEvent.Error("已打断"))
+            } else {
+                emit(StreamEvent.Error(e.message ?: "网络错误"))
+            }
         }
     }.flowOn(Dispatchers.IO)
 

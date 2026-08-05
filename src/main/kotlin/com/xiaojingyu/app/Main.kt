@@ -288,17 +288,26 @@ private fun ChatPanel(appState: AppState, lang: String) {
                 })
             )
             Spacer(Modifier.width(8.dp))
+            if (generating) {
+                IconButton(
+                    onClick = { appState.stopGeneration() },
+                    modifier = Modifier.background(Color(0xFFE54860), RoundedCornerShape(24.dp))
+                ) {
+                    Text(I18n.get("stop", lang), color = Color.White, fontSize = 12.sp)
+                }
+            } else {
             IconButton(
                 onClick = {
-                    if (input.isNotBlank() && !generating) {
+                    if (input.isNotBlank()) {
                         appState.sendMessage(input)
                         input = ""
                     }
                 },
-                enabled = input.isNotBlank() && !generating,
+                enabled = input.isNotBlank(),
                 modifier = Modifier.background(Color(0xFF6EC6F0), RoundedCornerShape(24.dp))
             ) {
                 Icon(Icons.Default.Send, contentDescription = I18n.get("send", lang), tint = Color(0xFF121217))
+            }
             }
         }
     }
@@ -427,6 +436,15 @@ private fun RightPanel(appState: AppState, lang: String) {
     val entries = remember { mutableStateListOf<ActionEntry>().apply { addAll(appState.actionLedger.all()) } }
     var restoredMsg by remember { mutableStateOf<String?>(null) }
     var sandboxFiles by remember { mutableStateOf<List<java.io.File>>(appState.sandbox.listFiles(appState.sandboxRoot)) }
+    val refreshLedger = {
+        entries.clear(); entries.addAll(appState.actionLedger.all())
+    }
+    LaunchedEffect(tab) {
+        while (tab == 0) {
+            refreshLedger()
+            kotlinx.coroutines.delay(2000)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -436,22 +454,34 @@ private fun RightPanel(appState: AppState, lang: String) {
             .padding(12.dp)
     ) {
         Row {
-            TabButton(I18n.get("right_ledger", lang), tab == 0) { tab = 0 }
+            TabButton(I18n.get("right_ledger", lang), tab == 0) { tab = 0; refreshLedger() }
             Spacer(Modifier.width(8.dp))
             TabButton(I18n.get("right_sandbox", lang), tab == 1) { tab = 1; sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) }
         }
         Spacer(Modifier.height(8.dp))
 
         if (tab == 0) {
-            Button(
-                onClick = {
-                    val restored = appState.restoreAllActions()
-                    restoredMsg = I18n.get("right_restored", lang).replace("{}", restored.toString())
-                    entries.clear(); entries.addAll(appState.actionLedger.all())
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
-            ) { Text(I18n.get("right_restore", lang), color = Color(0xFF6EC6F0)) }
+            Row {
+                Button(
+                    onClick = {
+                        val restored = appState.restoreAllActions()
+                        restoredMsg = I18n.get("right_restored", lang).replace("{}", restored.toString())
+                        refreshLedger()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
+                ) { Text(I18n.get("right_restore", lang), color = Color(0xFF6EC6F0), fontSize = 11.sp) }
+                Spacer(Modifier.width(6.dp))
+                Button(
+                    onClick = {
+                        appState.actionLedger.clear()
+                        restoredMsg = I18n.get("right_ledger_cleared", lang)
+                        refreshLedger()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
+                ) { Text(I18n.get("right_ledger_clear", lang), color = Color(0xFFE54860), fontSize = 11.sp) }
+            }
             restoredMsg?.let {
                 Text(it, color = Color(0xFFF0A050), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
             }

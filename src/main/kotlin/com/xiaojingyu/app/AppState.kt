@@ -238,7 +238,7 @@ class AppState(
                 chatStore.add("📝 已创建 $name 在沙盒中", isUser = false); "write"
             }
             // 7. 列文件
-            ?: Regex("""(看看|列一下|列出|有什么|看看有什么)\s*(?:沙盒|文件)""").find(msg)?.let {
+            ?: Regex("""(看看|列一下|列出|浏览|有什么|看看有什么|打开沙盒)\s*(?:沙盒|文件|文件夹)?\s*$""").find(msg)?.let {
                 val files = sandbox.listFiles(sandboxRoot)
                 val list = if (files.isEmpty()) "沙盒是空的" else files.joinToString("\n") { "📄 ${it.name} (${it.length()}B)" }
                 chatStore.add(list, isUser = false); "list"
@@ -283,6 +283,7 @@ class AppState(
     val sandboxRoot: java.io.File get() = java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/沙盒").apply { mkdirs() }
 
     fun stopGeneration() {
+        LlmClient.cancelCurrentCall()
         generationJob?.cancel()
         _generating.value = false
         _streaming.value = ""
@@ -376,6 +377,12 @@ class AppState(
                     is com.xiaojingyu.app.model.StreamEvent.Complete -> {
                         val full = e.fullText
                         val cleaned = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(full)
+                        if (cleaned.isBlank()) {
+                            _error.value = "白音这次没说出话来（模型返回了空回复），请再试一次"
+                            _generating.value = false
+                            _streaming.value = ""
+                            return@collect
+                        }
                         chatStore.add(cleaned, isUser = false)
                         _messages.value = chatStore.all()
                         _streaming.value = ""
@@ -390,7 +397,9 @@ class AppState(
                         maybeSummarizeHistory()
                     }
                     is com.xiaojingyu.app.model.StreamEvent.Error -> {
-                        _error.value = e.message
+                        if (e.message != "已打断") {
+                            _error.value = e.message
+                        }
                         _generating.value = false
                     }
                     else -> {}
