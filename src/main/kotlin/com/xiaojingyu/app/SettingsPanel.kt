@@ -40,7 +40,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
         onDismissRequest = onDismiss,
         title = { Text("设置", color = Color(0xFFE8E8EC)) },
         text = {
-            Column(modifier = Modifier.width(460.dp)) {
+            Column(modifier = Modifier.width(460.dp).heightIn(min = 500.dp, max = 600.dp)) {
                 Row {
                     TabButton("API 与功能", tab == 0) { tab = 0 }
                     Spacer(Modifier.width(6.dp))

@@ -303,12 +303,25 @@ private fun StreamingBubble(content: String) {
 }
 
 fun main() = application {
-    // 托盘
+    // 单实例保护
+    val lockFile = java.io.File(System.getProperty("java.io.tmpdir"), "xiaojingyu_app.lock")
+    try {
+        val raf = java.io.RandomAccessFile(lockFile, "rw")
+        val lock = raf.channel.tryLock()
+        if (lock == null) {
+            // 已有实例在运行
+            raf.close()
+            exitApplication()
+            return@application
+        }
+        // 注册退出清理
+        Runtime.getRuntime().addShutdownHook(Thread { runCatching { lock.release(); raf.close(); lockFile.delete() } })
+    } catch (_: Exception) { /* 锁失败不阻止启动 */ }
+
     SystemTrayManager.onOpenWindow = { }
     SystemTrayManager.onExit = { exitApplication() }
     SystemTrayManager.install()
 
-    // 加载窗口图标（从 resources）
     val windowIcon = remember { loadAppIcon() }
 
     Window(
@@ -319,7 +332,6 @@ fun main() = application {
     ) {
         App()
     }
-    // 退出时清理托盘
     SystemTrayManager.remove()
 }
 
