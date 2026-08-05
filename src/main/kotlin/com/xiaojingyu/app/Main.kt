@@ -35,14 +35,8 @@ fun App() {
     val chatStore = remember { ChatStore(configStore.dataDir) }
     val appState = remember { AppState(configStore, chatStore) }
 
-    // 首次启动许可声明（只出现一次）
-    var showLicense by remember {
-        mutableStateOf(!configStore.get().licenseAccepted)
-    }
-
-    if (showLicense) {
-        // 使用与 MaterialTheme 一致的颜色无需额外 MaterialTheme 包裹
-    }
+    var showLicense by remember { mutableStateOf(!configStore.get().licenseAccepted) }
+    var showSettings by remember { mutableStateOf(false) }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121217)) {
@@ -53,24 +47,22 @@ fun App() {
                 })
             } else {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    // 左栏：白音状态
-                    LeftPanel(appState, configStore)
-                    // 中间：聊天
-                    Box(modifier = Modifier.weight(1f)) {
-                        ChatPanel(appState)
-                    }
-                    // 右栏：行动账本 + 沙盒
+                    LeftPanel(appState, onOpenSettings = { showSettings = true })
+                    Box(modifier = Modifier.weight(1f)) { ChatPanel(appState) }
                     RightPanel(appState)
                 }
+            }
+            // 设置面板全屏覆盖
+            if (showSettings) {
+                SettingsPanel(appState, configStore, onDismiss = { showSettings = false })
             }
         }
     }
 }
 
 @Composable
-private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
+private fun LeftPanel(appState: AppState, onOpenSettings: () -> Unit) {
     val boredom by appState.boredom.collectAsState()
-    var showSettings by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -87,12 +79,10 @@ private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
                 .align(Alignment.CenterHorizontally)
                 .background(Color(0xFF1A1A22), RoundedCornerShape(60.dp)),
             contentAlignment = Alignment.Center
-        ) {
-            Text("🐳", fontSize = 48.sp)
-        }
+        ) { Text("🐳", fontSize = 48.sp) }
         Spacer(Modifier.height(12.dp))
         Text("白音", color = Color(0xFFE8E8EC), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text("天才猫娘AI", color = Color(0xFF6E6E7A), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("天才猫娘AI", color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(20.dp))
 
         // 无聊值
@@ -105,25 +95,88 @@ private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
             trackColor = Color(0xFF20202A)
         )
         Spacer(Modifier.height(4.dp))
-        Text("$boredom / 100", color = Color(0xFF6E6E7A), fontSize = 11.sp)
+        val boredomLabel = when {
+            boredom >= 80 -> "🎭 超级无聊！要搞事"
+            boredom >= 60 -> "😴 有点无聊了"
+            boredom >= 30 -> "💤 稍微无聊"
+            else -> "✨ 状态良好"
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$boredom / 100", color = Color(0xFF8E8E9A), fontSize = 11.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(boredomLabel, color = if (boredom >= 60) Color(0xFFF0A050) else Color(0xFF6E6E7A), fontSize = 10.sp)
+        }
 
         Spacer(Modifier.weight(1f))
 
-        // Live2D 舞台
-        OutlinedButton(
-            onClick = { Live2DStageServer.openInBrowser() },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-        ) { Text("Live2D 舞台", color = Color(0xFF6EC6F0)) }
+        // Live2D 模型管理
+        Text("Live2D 模型", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+        Spacer(Modifier.height(4.dp))
+        var selectedModel by remember { mutableStateOf(Live2DModelManager.currentModel) }
+        val models = remember { Live2DModelManager.listModels() }
+        var expanded by remember { mutableStateOf(false) }
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    selectedModel ?: "选择模型▼",
+                    color = Color(0xFF6EC6F0),
+                    fontSize = 12.sp
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                models.forEach { name ->
+                    DropdownMenuItem(
+                        text = { Text(name, fontSize = 12.sp) },
+                        onClick = {
+                            selectedModel = name
+                            Live2DModelManager.currentModel = name
+                            expanded = false
+                        }
+                    )
+                }
+                if (models.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("（无模型）", color = Color(0xFF6E6E7A), fontSize = 12.sp) },
+                        onClick = { expanded = false }
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row {
+            // 导入按钮
+            OutlinedButton(
+                onClick = {
+                    val dialog = java.awt.FileDialog(java.awt.Frame(), "导入 Live2D 模型（ZIP）", java.awt.FileDialog.LOAD)
+                    dialog.file = "*.zip"
+                    dialog.isVisible = true
+                    if (dialog.file != null) {
+                        val zipPath = java.io.File(dialog.directory, dialog.file).absolutePath
+                        if (Live2DModelManager.importModel(zipPath) != null) {
+                            selectedModel = Live2DModelManager.listModels().lastOrNull()
+                            Live2DModelManager.currentModel = selectedModel
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("导入", color = Color(0xFF6EC6F0), fontSize = 12.sp) }
+            Spacer(Modifier.width(4.dp))
+            // 打开舞台
+            OutlinedButton(
+                onClick = { Live2DStageServer.openInBrowser() },
+                modifier = Modifier.weight(1f)
+            ) { Text("打开", color = Color(0xFF9A9AA4), fontSize = 12.sp) }
+        }
 
-        // 设置按钮
+        Spacer(Modifier.height(12.dp))
+
         OutlinedButton(
-            onClick = { showSettings = true },
+            onClick = onOpenSettings,
             modifier = Modifier.fillMaxWidth()
         ) { Text("设置", color = Color(0xFF9A9AA4)) }
-    }
-
-    if (showSettings) {
-        SettingsPanel(appState, configStore, onDismiss = { showSettings = false })
     }
 }
 

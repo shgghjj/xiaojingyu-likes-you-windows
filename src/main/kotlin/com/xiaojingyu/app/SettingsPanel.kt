@@ -114,7 +114,21 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 Modifier.fillMaxWidth().height(120.dp),
                                 placeholder = { Text("粘贴你的破甲词库内容…") }
                             )
-                            Text("选择「自定义」并填写内容后保存", color = Color(0xFF6E6E7A), fontSize = 11.sp)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val dialog = java.awt.FileDialog(java.awt.Frame(), "选择破甲词库文件", java.awt.FileDialog.LOAD)
+                                        dialog.file = "*.txt"
+                                        dialog.isVisible = true
+                                        if (dialog.file != null) {
+                                            val f = java.io.File(dialog.directory, dialog.file)
+                                            try { customJailbreak = f.readText().take(5000) } catch (_: Exception) {}
+                                        }
+                                    },
+                                    modifier = Modifier.height(32.dp)
+                                ) { Text("从文件导入", fontSize = 12.sp) }
+                            }
+                            Text("选择「自定义」并填写内容后保存", color = Color(0xFF8E8E9A), fontSize = 11.sp)
                         }
                         2 -> {
                             Text("她记得的事（档案）", color = Color(0xFF9A9AA4), fontSize = 12.sp)
