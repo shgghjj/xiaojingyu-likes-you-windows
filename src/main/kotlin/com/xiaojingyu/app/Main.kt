@@ -25,6 +25,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.coroutines.launch
 
 @Composable
@@ -237,15 +240,48 @@ fun main() = application {
     SystemTrayManager.onExit = { exitApplication() }
     SystemTrayManager.install()
 
+    // 加载窗口图标（从 resources）
+    val windowIcon = remember { loadAppIcon() }
+
     Window(
         onCloseRequest = { exitApplication() },
         title = "小鲸鱼喜欢你",
+        icon = windowIcon,
         state = rememberWindowState(size = DpSize(1100.dp, 720.dp))
     ) {
         App()
     }
     // 退出时清理托盘
     SystemTrayManager.remove()
+}
+
+/** 从 resources 加载 ICO 图标（转 PNG 供 Compose Window 使用） */
+private fun loadAppIcon(): androidx.compose.ui.graphics.painter.Painter? {
+    return try {
+        val bytes = Live2DStageServer::class.java.classLoader
+            ?.getResourceAsStream("xiaojingyu_icon.ico")?.use { it.readBytes() } ?: return null
+        // 从 ICO 提取 PNG（现代 ICO 用 PNG 压缩）
+        val pngBytes = extractPngFromIco(bytes) ?: return null
+        val bitmap = org.jetbrains.skia.Image.makeFromEncoded(pngBytes)
+            .toComposeImageBitmap()
+        androidx.compose.ui.graphics.painter.BitmapPainter(bitmap)
+    } catch (_: Exception) { null }
+}
+
+/** 从 ICO 二进制提取内嵌 PNG（现代 ICO 用 PNG 压缩） */
+private fun extractPngFromIco(ico: ByteArray): ByteArray? {
+    return try {
+        val count = ((ico[4].toInt() and 0xFF) shl 8) or (ico[5].toInt() and 0xFF)
+        if (count <= 0) return null
+        // 目录项 16 字节，第 12 字节是 PNG 数据偏移（4字节 LE）
+        val offset = ((ico[12].toInt() and 0xFF)) or
+            ((ico[13].toInt() and 0xFF) shl 8) or
+            ((ico[14].toInt() and 0xFF) shl 16) or
+            ((ico[15].toInt() and 0xFF) shl 24)
+        val pngSize = ico.size - offset
+        if (pngSize <= 0) return null
+        ico.copyOfRange(offset, ico.size)
+    } catch (_: Exception) { null }
 }
 
 @Composable

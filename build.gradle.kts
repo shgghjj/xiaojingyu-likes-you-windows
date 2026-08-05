@@ -42,6 +42,10 @@ compose.desktop {
             packageVersion = "0.1.0"
             description = "小鲸鱼喜欢你 - 天才猫娘AI白音桌面版"
             vendor = "xiaojingyu"
+            windows {
+                iconFile.set(project.file("src/main/resources/xiaojingyu_icon.ico"))
+                menuGroup = "小鲸鱼喜欢你"
+            }
         }
     }
 }
