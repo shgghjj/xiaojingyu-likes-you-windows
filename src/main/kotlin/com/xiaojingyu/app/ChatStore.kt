@@ -47,6 +47,15 @@ class ChatStore(private val dataDir: File) {
         save()
     }
 
+    /** 删除指定索引的消息 */
+    @Synchronized
+    fun deleteAt(index: Int): Boolean {
+        if (index < 0 || index >= messages.size) return false
+        messages = messages.filterIndexed { i, _ -> i != index }
+        save()
+        return true
+    }
+
     fun asChatMessages(): List<ChatMessage> = synchronized(this) {
         messages.map {
             ChatMessage(content = it.content, isUser = it.isUser, timestamp = java.time.Instant.ofEpochMilli(it.timestamp), reasoning = it.reasoning)

@@ -128,10 +128,110 @@ class AppState(
         if (msg.isEmpty() || _generating.value) return
         chatStore.add(msg, isUser = true)
         _messages.value = chatStore.all()
-        // 交互后无聊值归零
         touchInteraction()
+        // 意图检测：识别工具命令并直接执行（龙虾能力）
+        if (detectAndExecuteTool(msg)) return
         generate()
     }
+
+    /** 检测用户意图并发执行。返回 true 表示已执行工具（不需要模型回复） */
+    private fun detectAndExecuteTool(msg: String): Boolean {
+        val detected = runCatching {
+            // 1. 打开网页/浏览器
+            Regex("""(打开|开|打开一下|帮我打开|启动)\s*(Edge|浏览器|Chrome|Firefox|edge|chrome|firefox|bing|百度|google|Google|B站|bilibili|YouTube|youtube)""").find(msg)?.let {
+                val target = it.groupValues[2].lowercase()
+                val url = when {
+                    target.contains("百度") -> "https://www.baidu.com"
+                    target.contains("google") -> "https://www.google.com"
+                    target.contains("b站") || target.contains("bilibili") -> "https://www.bilibili.com"
+                    target.contains("youtube") -> "https://www.youtube.com"
+                    else -> "https://www.bing.com"
+                }
+                openUrl(url)
+                chatStore.add("🌐 已打开 $target ($url)", isUser = false); "browser"
+            }
+            // 2. 打开网址
+            ?: Regex("""(打开|访问|浏览|帮我打开)\s*(https?://[^\s，。！？]+)""").find(msg)?.let {
+                val url = it.groupValues[2]; openUrl(url)
+                chatStore.add("🌐 已打开 $url", isUser = false); "url"
+            }
+            // 3. 运行命令
+            ?: Regex("""(运行|执行|跑|跑一下|帮我跑)\s*(.+?)(?:命令|代码|脚本)?\s*$""").find(msg)?.let {
+                val cmd = it.groupValues[2].trim()
+                if (!sandboxRoot.exists()) sandboxRoot.mkdirs()
+                val result = commandExecutor.execute(cmd, sandboxRoot, 30)
+                chatStore.add("💻 命令: $cmd\n${result.output.take(500)}", isUser = false); "command"
+            }
+            // 4. Git 操作
+            ?: Regex("""(git|Git)\s+(status|log|diff|branch|add|commit|push|pull|checkout)\s*(.*)""").find(msg)?.let {
+                val operation = it.groupValues[2]; val args = it.groupValues[3].trim()
+                if (!sandboxRoot.exists()) sandboxRoot.mkdirs()
+                val result = commandExecutor.execute("git $operation $args", sandboxRoot, 60)
+                chatStore.add("🐙 git $operation: ${result.output.take(500)}", isUser = false); "git"
+            }
+            // 5. 读文件
+            ?: Regex("""(读一下|看看|读|打开|查看)\s*(?:文件|这个)?\s*(.+\.\w{2,5})\s*""").find(msg)?.let {
+                val filename = it.groupValues[2].trim()
+                val file = java.io.File(sandboxRoot, filename)
+                if (!file.exists()) file.apply { parentFile?.mkdirs() }
+                val content = sandbox.readText(file, configStore.get().fileReadEnabled)
+                if (content != null) {
+                    chatStore.add("📄 ${file.name}:\n${content.take(800)}", isUser = false)
+                } else {
+                    chatStore.add("❌ 无法读取 $filename（文件不存在或权限不足）", isUser = false)
+                }
+                "read"
+            }
+            // 6. 写便签/文件到沙盒
+            ?: Regex("""(写|创建|帮我写|帮我创建|记一下)\s*(?:一个|个)?\s*(?:文件|便签|笔记)?\s*(?:叫|名为)?\s*(.+\.\w{2,5})\s*[：:]\s*(.+)""").find(msg)?.let {
+                val name = it.groupValues[2].trim(); val content = it.groupValues[3].trim()
+                sandbox.writeFile(name, content)
+                chatStore.add("📝 已创建 $name 在沙盒中", isUser = false); "write"
+            }
+            // 7. 列文件
+            ?: Regex("""(看看|列一下|列出|有什么|看看有什么)\s*(?:沙盒|文件)""").find(msg)?.let {
+                val files = sandbox.listFiles(sandboxRoot)
+                val list = if (files.isEmpty()) "沙盒是空的" else files.joinToString("\n") { "📄 ${it.name} (${it.length()}B)" }
+                chatStore.add(list, isUser = false); "list"
+            }
+            // 8. 联网搜索
+            ?: Regex("""(搜索|查一下|查|帮我查)\s*(.+)""").find(msg)?.let {
+                val query = it.groupValues[2].trim().take(200)
+                chatStore.add("🔍 搜索中: $query", isUser = false)
+                scope.launch {
+                    val summary = webSearch(query)
+                    chatStore.add("🔍 搜索「$query」:\n$summary", isUser = false)
+                    _messages.value = chatStore.all()
+                }
+                null // 异步，先让意图检测返回 true 阻止模型回复
+            }
+        }.getOrNull()
+        if (detected != null) {
+            _messages.value = chatStore.all()
+            return true
+        }
+        return false
+    }
+
+    /** 联网搜索 */
+    private suspend fun webSearch(query: String): String {
+        return try {
+            val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+            val url = java.net.URL("https://www.bing.com/search?q=$encoded&setlang=zh-hans")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0"); conn.connectTimeout = 10000; conn.readTimeout = 12000
+            conn.instanceFollowRedirects = true
+            if (conn.responseCode != 200) return "搜索失败 (${conn.responseCode})"
+            val html = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val items = Regex("""(?is)<li[^>]*class=["'][^"']*b_algo[^"']*["'][^>]*>(.*?)</li>""")
+                .findAll(html).map { stripHtml(it.groupValues[1]) }.filter { it.length >= 20 }.take(5).toList()
+            if (items.isEmpty()) "无搜索结果" else items.mapIndexed { i, s -> "${i+1}. ${s.take(300)}" }.joinToString("\n")
+        } catch (e: Exception) { "搜索失败: ${e.message}" }
+    }
+
+    private fun stripHtml(html: String): String = html.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim()
+
+    val sandboxRoot: java.io.File get() = java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/沙盒").apply { mkdirs() }
 
     fun stopGeneration() {
         generationJob?.cancel()
@@ -142,6 +242,21 @@ class AppState(
     fun clearChat() {
         chatStore.clear()
         _messages.value = emptyList()
+    }
+
+    fun deleteMessage(index: Int): Boolean {
+        if (chatStore.deleteAt(index)) {
+            _messages.value = chatStore.all()
+            return true
+        }
+        return false
+    }
+
+    /** 用系统浏览器打开 URL */
+    fun openUrl(url: String) {
+        runCatching {
+            java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+        }
     }
 
     fun updateConfig(transform: (AppConfig) -> AppConfig) {
@@ -268,11 +383,6 @@ class AppState(
     // ── 沙盒 / 账本 / 命令 / 插件 ─────────────────────────────────────────
 
     private val ledger by lazy { ActionLedger(configStore.dataDir) }
-
-    /** 沙盒根目录 */
-    val sandboxRoot by lazy {
-        java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/沙盒").apply { mkdirs() }
-    }
 
     /** 沙盒管理器——每次访问都重建，确保授权目录变化生效 */
     val sandbox: FileSandbox

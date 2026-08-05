@@ -127,6 +127,7 @@ object I18n {
         "clear_chat_title" to mapOf("zh" to "清空对话？", "en" to "Clear chat?"),
         "clear_chat_body" to mapOf("zh" to "这将删除所有聊天记录，无法恢复。", "en" to "This will delete all messages and cannot be undone."),
         "clear_chat_ok" to mapOf("zh" to "确认清空", "en" to "Clear All"),
+        "open_edge" to mapOf("zh" to "🌐 打开浏览器", "en" to "🌐 Open Browser"),
     )
 
     fun get(key: String, lang: String): String {
