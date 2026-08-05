@@ -40,6 +40,13 @@ class ChatStore(private val dataDir: File) {
         save()
     }
 
+    /** 用摘要消息替换前 N 条消息，保留后面的 */
+    @Synchronized
+    fun replaceRange(keepFromIndex: Int, summaryMsg: StoredMessage) {
+        messages = listOf(summaryMsg) + messages.drop(keepFromIndex)
+        save()
+    }
+
     fun asChatMessages(): List<ChatMessage> = synchronized(this) {
         messages.map {
             ChatMessage(content = it.content, isUser = it.isUser, timestamp = java.time.Instant.ofEpochMilli(it.timestamp), reasoning = it.reasoning)

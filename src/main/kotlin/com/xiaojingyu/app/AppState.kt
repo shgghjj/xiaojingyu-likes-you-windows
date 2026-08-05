@@ -196,6 +196,8 @@ class AppState(
                         }
                         // 触发记忆整理
                         maybeConsolidate()
+                        // 自动总结旧历史
+                        maybeSummarizeHistory()
                     }
                     is com.xiaojingyu.app.model.StreamEvent.Error -> {
                         _error.value = e.message
@@ -231,20 +233,47 @@ class AppState(
         }
     }
 
+    /** 聊天历史过长时自动总结旧消息，省 token */
+    private fun maybeSummarizeHistory() {
+        val msgs = chatStore.all()
+        if (msgs.size < 20) return
+        val totalChars = msgs.sumOf { it.content.length }
+        if (totalChars < 8000) return
+        val splitIdx = (msgs.size * 0.6).toInt().coerceAtLeast(5)
+        scope.launch {
+            val cfg = configStore.get().toApiConfiguration()
+            if (cfg.apiKey.isBlank()) return@launch
+            val oldMsgs = msgs.take(splitIdx)
+            val conversation = oldMsgs.joinToString("\n") { "${if (it.isUser) "老大" else "白音"}: ${it.content.take(200)}" }
+            val summary = LlmClient.generateOnce(
+                listOf(
+                    PromptMessage("system", "用2-3句话中文总结这段对话，不超过120字。"),
+                    PromptMessage("user", conversation)
+                ),
+                cfg, maxTokens = 150, temperature = 0.3
+            )
+            val clean = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(summary)
+            if (clean.isNotBlank()) {
+                // 用摘要替换被总结的消息，标记为系统消息
+                val summaryMsg = StoredMessage("📝 历史摘要: $clean", false, System.currentTimeMillis())
+                chatStore.replaceRange(splitIdx, summaryMsg)
+                _messages.value = chatStore.all()
+            }
+        }
+    }
+
     // ── 沙盒 / 账本 / 命令 / 插件 ─────────────────────────────────────────
 
     private val ledger by lazy { ActionLedger(configStore.dataDir) }
 
-    val sandboxRoot: java.io.File by lazy {
-        java.io.File(
-            System.getProperty("user.home"),
-            "Documents/小鲸鱼喜欢你/沙盒"
-        ).apply { mkdirs() }
+    /** 沙盒根目录 */
+    val sandboxRoot by lazy {
+        java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/沙盒").apply { mkdirs() }
     }
 
-    val sandbox: FileSandbox by lazy {
-        FileSandbox(ledger, sandboxRoot, enabledDirs = configStore.get().authorizedDirs.map { java.io.File(it) }.toSet())
-    }
+    /** 沙盒管理器——每次访问都重建，确保授权目录变化生效 */
+    val sandbox: FileSandbox
+        get() = FileSandbox(ledger, sandboxRoot, enabledDirs = configStore.get().authorizedDirs.map { java.io.File(it) }.toSet())
 
     val commandExecutor: CommandExecutor by lazy { CommandExecutor(ledger) }
 
