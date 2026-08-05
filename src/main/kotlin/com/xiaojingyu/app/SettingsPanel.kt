@@ -52,21 +52,24 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .fillMaxHeight(0.85f)
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.90f)
                 .clickable(enabled = false) {},
             shape = RoundedCornerShape(16.dp),
             color = Color(0xFF14141A),
             tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 标题
-                Text("设置", color = Color(0xFFE8E8EC), fontSize = 20.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    modifier = Modifier.padding(20.dp, 16.dp, 20.dp, 4.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(24.dp, 16.dp, 24.dp, 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("设置", color = Color(0xFFE8E8EC), fontSize = 20.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    TextButton(onClick = onDismiss) { Text("✕", color = Color(0xFF8E8E9A), fontSize = 16.sp) }
+                }
 
                 // 标签栏
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp)) {
                     TabButton("API 与功能", tab == 0) { tab = 0 }
                     Spacer(Modifier.width(6.dp))
                     TabButton("破甲词库", tab == 1) { tab = 1 }
@@ -77,7 +80,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
 
                 // 内容区
                 Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp)
                 ) {
                     when (tab) {
                         0 -> {
@@ -169,7 +172,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
 
                 // 底部按钮
                 HorizontalDivider(color = Color(0xFF252530))
-                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("取消", color = Color(0xFF8E8E9A)) }
                     Spacer(Modifier.width(12.dp))
                     TextButton(onClick = {

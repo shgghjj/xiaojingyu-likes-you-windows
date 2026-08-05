@@ -328,7 +328,7 @@ fun main() = application {
         onCloseRequest = { exitApplication() },
         title = "小鲸鱼喜欢你",
         icon = windowIcon,
-        state = rememberWindowState(size = DpSize(1100.dp, 720.dp))
+        state = rememberWindowState(size = DpSize(1300.dp, 850.dp))
     ) {
         App()
     }
