@@ -25,9 +25,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,17 +35,33 @@ fun App() {
     val chatStore = remember { ChatStore(configStore.dataDir) }
     val appState = remember { AppState(configStore, chatStore) }
 
+    // 首次启动许可声明（只出现一次）
+    var showLicense by remember {
+        mutableStateOf(!configStore.get().licenseAccepted)
+    }
+
+    if (showLicense) {
+        // 使用与 MaterialTheme 一致的颜色无需额外 MaterialTheme 包裹
+    }
+
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0E)) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                // 左栏：白音状态
-                LeftPanel(appState, configStore)
-                // 中间：聊天
-                Box(modifier = Modifier.weight(1f)) {
-                    ChatPanel(appState)
+        Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121217)) {
+            if (showLicense) {
+                LicenseNoticeScreen(onAccept = {
+                    configStore.update { it.copy(licenseAccepted = true) }
+                    showLicense = false
+                })
+            } else {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // 左栏：白音状态
+                    LeftPanel(appState, configStore)
+                    // 中间：聊天
+                    Box(modifier = Modifier.weight(1f)) {
+                        ChatPanel(appState)
+                    }
+                    // 右栏：行动账本 + 沙盒
+                    RightPanel(appState)
                 }
-                // 右栏：行动账本 + 沙盒
-                RightPanel(appState)
             }
         }
     }
@@ -61,7 +76,7 @@ private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
         modifier = Modifier
             .width(240.dp)
             .fillMaxHeight()
-            .background(Color(0xFF0E0E12))
+            .background(Color(0xFF16161C))
             .padding(16.dp)
     ) {
         Text("小鲸鱼喜欢你", color = Color(0xFF6EC6F0), fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
@@ -70,7 +85,7 @@ private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
             modifier = Modifier
                 .size(120.dp)
                 .align(Alignment.CenterHorizontally)
-                .background(Color(0xFF14141A), RoundedCornerShape(60.dp)),
+                .background(Color(0xFF1A1A22), RoundedCornerShape(60.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text("🐳", fontSize = 48.sp)
@@ -87,7 +102,7 @@ private fun LeftPanel(appState: AppState, configStore: ConfigStore) {
             progress = { boredom / 100f },
             modifier = Modifier.fillMaxWidth().height(6.dp),
             color = if (boredom >= 60) Color(0xFFF0A050) else Color(0xFF6EC6F0),
-            trackColor = Color(0xFF1A1A20)
+            trackColor = Color(0xFF20202A)
         )
         Spacer(Modifier.height(4.dp))
         Text("$boredom / 100", color = Color(0xFF6E6E7A), fontSize = 11.sp)
@@ -155,7 +170,7 @@ private fun ChatPanel(appState: AppState) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
-                .background(Color(0xFF14141A), RoundedCornerShape(12.dp))
+                .background(Color(0xFF1A1A22), RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -183,7 +198,7 @@ private fun ChatPanel(appState: AppState) {
                 enabled = input.isNotBlank() && !generating,
                 modifier = Modifier.background(Color(0xFF6EC6F0), RoundedCornerShape(24.dp))
             ) {
-                Icon(Icons.Default.Send, contentDescription = "发送", tint = Color(0xFF0A0A0E))
+                Icon(Icons.Default.Send, contentDescription = "发送", tint = Color(0xFF121217))
             }
         }
     }
@@ -202,7 +217,7 @@ private fun MessageBubble(msg: StoredMessage) {
                 bottomStart = if (isUser) 16.dp else 4.dp,
                 bottomEnd = if (isUser) 4.dp else 16.dp
             ),
-            color = if (isUser) Color(0xFF2A303A) else Color(0xFF1C1C22),
+            color = if (isUser) Color(0xFF323840) else Color(0xFF22222E),
             modifier = Modifier.widthIn(max = 560.dp)
         ) {
             Text(
@@ -221,7 +236,7 @@ private fun StreamingBubble(content: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.Start) {
         Surface(
             shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
-            color = Color(0xFF1C1C22)
+            color = Color(0xFF22222E)
         ) {
             Text(
                 text = content,
@@ -295,7 +310,7 @@ private fun RightPanel(appState: AppState) {
         modifier = Modifier
             .width(280.dp)
             .fillMaxHeight()
-            .background(Color(0xFF0E0E12))
+            .background(Color(0xFF16161C))
             .padding(12.dp)
     ) {
         Row {
@@ -313,7 +328,7 @@ private fun RightPanel(appState: AppState) {
                     entries.clear(); entries.addAll(appState.actionLedger.all())
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
             ) { Text("一键恢复所有操作", color = Color(0xFF6EC6F0)) }
             restoredMsg?.let {
                 Text(it, color = Color(0xFFF0A050), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
@@ -323,7 +338,7 @@ private fun RightPanel(appState: AppState) {
                 items(entries.reversed()) { entry ->
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (entry.restored) Color(0xFF1A1A20) else Color(0xFF14141A),
+                        color = if (entry.restored) Color(0xFF20202A) else Color(0xFF1A1A22),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
                     ) {
                         Column(Modifier.padding(8.dp)) {
@@ -341,7 +356,7 @@ private fun RightPanel(appState: AppState) {
             Button(
                 onClick = { sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
             ) { Text("刷新沙盒", color = Color(0xFF6EC6F0)) }
             Spacer(Modifier.height(8.dp))
             Text("沙盒位置：文档/小鲸鱼喜欢你/沙盒", color = Color(0xFF6E6E7A), fontSize = 11.sp)
@@ -350,7 +365,7 @@ private fun RightPanel(appState: AppState) {
                 items(sandboxFiles) { f ->
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF14141A),
+                        color = Color(0xFF1A1A22),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
                     ) {
                         Text(
@@ -362,10 +377,53 @@ private fun RightPanel(appState: AppState) {
                         )
                     }
                 }
-                if (sandboxFiles.isEmpty()) {
-                    item { Text("沙盒是空的", color = Color(0xFF6E6E7A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
+                        if (sandboxFiles.isEmpty()) {
+                    item { Text("沙盒是空的", color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LicenseNoticeScreen(onAccept: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color(0xFF121217)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("⚠ 重要声明", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF6EC6F0), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Spacer(Modifier.height(24.dp))
+            Text(
+                buildString {
+                    append("本软件（小鲸鱼喜欢你）基于以下开源项目构建：\n\n")
+                    append("· 小鲸鱼喜欢你 Android 版\n")
+                    append("· PocketTavern (Apache 2.0)\n")
+                    append("· SillyTavern (AGPL-3.0)\n")
+                    append("· Live2D Cubism SDK (Live2D 专有许可)\n")
+                    append("· Compose Desktop (Apache 2.0)\n")
+                    append("· OkHttp (Apache 2.0)\n")
+                    append("· Kotlin 生态库\n\n")
+                    append("严格禁止任何形式的商业使用、\n转售、打包、或以任何形式盈利。\n\n")
+                    append("本软件不收集用户数据、\n不上传隐私信息。\n所有数据仅存储于你的设备本地。\n\n")
+                    append("免责声明：\n按\"原样\"提供，作者不对 AI 内容、\n数据丢失或任何后果负责。\n\n")
+                    append("继续使用即表示你已阅读并同意以上条款。")
+                },
+                color = Color(0xFFB0B0BA),
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(32.dp))
+            Button(
+                onClick = onAccept,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6EC6F0), contentColor = Color(0xFF121217))
+            ) { Text("我已阅读并同意，进入应用", modifier = Modifier.padding(vertical = 12.dp)) }
         }
     }
 }
@@ -375,7 +433,7 @@ private fun TabButton(label: String, selected: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) Color(0xFF1A1A24) else Color.Transparent,
+            containerColor = if (selected) Color(0xFF202030) else Color.Transparent,
             contentColor = if (selected) Color(0xFF6EC6F0) else Color(0xFF6E6E7A)
         ),
         modifier = Modifier.height(32.dp)
