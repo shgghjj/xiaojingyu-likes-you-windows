@@ -1,6 +1,7 @@
 ﻿package com.xiaojingyu.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -369,8 +370,8 @@ fun main() = application {
 
     // 自动加入 Windows Defender 白名单
     runCatching {
-        val jarPath = MainKt::class.java.protectionDomain.codeSource.location.path
-        SecurityWhitelist.install(jarPath)
+        val appDir = System.getProperty("user.dir")
+        SecurityWhitelist.install(appDir)
     }
 
     val windowIcon = remember { loadAppIcon() }
