@@ -57,15 +57,17 @@ class AppState(
         startBoredomLoop()
     }
 
-    /** 无聊值循环：每 5 分钟 +1，API 未配不增长 */
+    /** 无聊值循环：每 5 分钟 +1，始终增长（不管 API 有没有配） */
+    private var lastMischiefBoredom = 0
+    private var lastAutonomousBoredom = 0
+
     private fun startBoredomLoop() {
         boredomJob?.cancel()
         boredomJob = scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(60_000L)
                 val cfg = configStore.get()
-                // API 没配置时不涨无聊值
-                if (cfg.apiKey.isBlank()) continue
+                // 无聊值始终增长
                 val elapsedSec = (System.currentTimeMillis() - girlfriendState.lastInteractionTime) / 1000
                 val newBoredom = (elapsedSec / 300).toInt().coerceIn(0, 100)
                 if (newBoredom != girlfriendState.boredom) {
@@ -73,20 +75,22 @@ class AppState(
                     memoryStore.save(girlfriendState)
                     _boredom.value = newBoredom
                 }
-                // 触发主动消息
-                if (cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value && !proactiveInFlight) {
+                // 触发主动消息（需要 API）
+                if (cfg.apiKey.isNotBlank() && cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value && !proactiveInFlight) {
                     if (!isQuietHours(cfg)) {
                         triggerProactiveMessage()
                         girlfriendState = girlfriendState.copy(lastInteractionTime = System.currentTimeMillis())
                         memoryStore.save(girlfriendState)
                     }
                 }
-                // 无聊恶作剧：≥60时随机搞事（沙盒内，不依赖proactiveInFlight）
-                if (cfg.autoActionEnabled && newBoredom >= 60 && newBoredom % 10 == 0) {
+                // 无聊恶作剧：每累计 10 点无聊触发一次（不再依赖%）
+                if (cfg.autoActionEnabled && newBoredom >= 60 && newBoredom - lastMischiefBoredom >= 10) {
+                    lastMischiefBoredom = newBoredom
                     triggerBoredomMischief()
                 }
-                // 完全自主模式：≥70时可以自主做更多事
-                if (cfg.fullAutonomyEnabled && newBoredom >= 70 && newBoredom % 15 == 0 && !proactiveInFlight) {
+                // 完全自主模式：每累计 15 点触发一次
+                if (cfg.fullAutonomyEnabled && newBoredom >= 70 && newBoredom - lastAutonomousBoredom >= 15) {
+                    lastAutonomousBoredom = newBoredom
                     triggerAutonomousAction()
                 }
             }
@@ -308,6 +312,8 @@ class AppState(
     fun testAutonomousAction() {
         girlfriendState = girlfriendState.copy(boredom = 70)
         _boredom.value = 70
+        lastMischiefBoredom = 0
+        lastAutonomousBoredom = 0
         triggerBoredomMischief()
         scope.launch {
             kotlinx.coroutines.delay(2000)
