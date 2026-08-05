@@ -1,10 +1,5 @@
 package com.xiaojingyu.app.model
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-
 /**
  * 桌面版回复清洗：
  * - 剥离 JSON 包装（{text, avatar, voice} → 只取 text）
@@ -12,21 +7,35 @@ import kotlinx.serialization.json.contentOrNull
  */
 object StructuredReplyParserDesktop {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-
     fun sanitize(fullText: String): String {
         if (fullText.isBlank()) return fullText
-        // 正则提取 text 字段（比 JSON 解析更鲁棒，容错特殊字符）
-        val textExtract = Regex(""""text"\s*:\s*"([^"]*(?:\\.[^"]*)*)"""").find(fullText)
-        val extracted = textExtract?.groupValues?.getOrNull(1)?.replace("\\\"", "\"")?.replace("\\n", "\n")
-        val text = extracted ?: fullText
-        var result = text
-            .replace(Regex("```(?:json|JSON)?\\s*"), "")
-            .replace("```", "")
-            .replace("**", "")
-            .replace(Regex("^girlfriend_card\\.png\\s*[:：]\\s*"), "")
-            .replace(Regex("^\\w+\\.png\\s*[:：]\\s*"), "")
-            .trim()
+        // 手动提取 text 字段（不用正则/JSON解析，避免转义和特殊字符问题）
+        val key = "\"text\""
+        val idx = fullText.indexOf(key)
+        if (idx < 0) return cleanPrefix(fullText)
+        var pos = idx + key.length
+        // 跳过冒号和空白
+        while (pos < fullText.length && (fullText[pos] == ' ' || fullText[pos] == ':')) pos++
+        if (pos >= fullText.length || fullText[pos] != '\"') return cleanPrefix(fullText)
+        pos++ // 跳过开引号
+        val sb = StringBuilder()
+        while (pos < fullText.length) {
+            if (fullText[pos] == '\\' && pos + 1 < fullText.length) {
+                pos++
+                sb.append(fullText[pos])
+            } else if (fullText[pos] == '\"') {
+                break // 闭引号
+            } else {
+                sb.append(fullText[pos])
+            }
+            pos++
+        }
+        val text = sb.toString().trim()
+        return if (text.isBlank()) cleanPrefix(fullText) else cleanPrefix(text)
+    }
+
+    private fun cleanPrefix(text: String): String {
+        var result = text.trim()
         val prefixes = listOf(
             "好的，让我想想", "好的让我想想", "让我想想", "让我想一下",
             "好的，我来", "我来想想", "首先，", "首先", "嗯，", "明白了，", "收到，"
