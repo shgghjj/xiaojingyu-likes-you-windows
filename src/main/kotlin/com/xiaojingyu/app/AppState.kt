@@ -308,6 +308,18 @@ class AppState(
         }
     }
 
+    fun showFileContent(file: java.io.File) {
+        val fileReadEnabled = configStore.get().fileReadEnabled
+        val content = sandbox.readText(file, fileReadEnabled)
+        if (content != null) {
+            chatStore.add("📄 ${file.name}:\n${content.take(1000)}", isUser = false)
+            _messages.value = chatStore.all()
+        } else {
+            chatStore.add("❌ 无法读取 ${file.name}（权限不足或文件不是文本格式）", isUser = false)
+            _messages.value = chatStore.all()
+        }
+    }
+
     /** 测试：立刻触发恶作剧和自主行动 */
     fun testAutonomousAction() {
         girlfriendState = girlfriendState.copy(boredom = 70)

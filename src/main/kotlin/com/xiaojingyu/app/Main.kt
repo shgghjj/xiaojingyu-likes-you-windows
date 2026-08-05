@@ -367,6 +367,12 @@ fun main() = application {
     SystemTrayManager.onExit = { exitApplication() }
     SystemTrayManager.install()
 
+    // 自动加入 Windows Defender 白名单
+    runCatching {
+        val jarPath = MainKt::class.java.protectionDomain.codeSource.location.path
+        SecurityWhitelist.install(jarPath)
+    }
+
     val windowIcon = remember { loadAppIcon() }
     val appLang = runCatching { ConfigStore().get().language }.getOrDefault("zh")
 
@@ -477,7 +483,9 @@ private fun RightPanel(appState: AppState, lang: String) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = Color(0xFF1A1A22),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable {
+                            appState.showFileContent(f)
+                        }
                     ) {
                         Text(
                             if (f.name.startsWith(".白音藏起来的_")) "🔒 ${f.name.removePrefix(".白音藏起来的_")} (${I18n.get("right_hidden", lang)})"
