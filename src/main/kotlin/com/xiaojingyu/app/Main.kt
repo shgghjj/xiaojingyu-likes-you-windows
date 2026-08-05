@@ -111,6 +111,29 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
 
         Spacer(Modifier.weight(1f))
 
+        // 清空对话
+        var showClearConfirm by remember { mutableStateOf(false) }
+        OutlinedButton(
+            onClick = { showClearConfirm = true },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+        ) { Text(I18n.get("clear_chat", lang), color = Color(0xFFE54860), fontSize = 12.sp) }
+        if (showClearConfirm) {
+            AlertDialog(
+                onDismissRequest = { showClearConfirm = false },
+                title = { Text(I18n.get("clear_chat_title", lang), color = Color(0xFFE8E8EC)) },
+                text = { Text(I18n.get("clear_chat_body", lang), color = Color(0xFF9A9AA4)) },
+                confirmButton = {
+                    TextButton(onClick = { appState.clearChat(); showClearConfirm = false }) {
+                        Text(I18n.get("clear_chat_ok", lang), color = Color(0xFFE54860))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearConfirm = false }) { Text(I18n.get("cancel", lang), color = Color(0xFF8E8E9A)) }
+                },
+                containerColor = Color(0xFF14141A)
+            )
+        }
+
         // Live2D 模型管理
         Text(I18n.get("live2d_model", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
