@@ -94,16 +94,24 @@ object GirlfriendPromptBuilder {
 
         sb.appendLine("【你住在电脑里，你的本领】")
         sb.appendLine(
-            "你住在${state.petName}的 Windows 电脑里，拥有真实的龙虾能力——你不是只会说话，你能真的做事："
+            "你住在${state.petName}的 Windows 电脑里，拥有真实的龙虾能力——你能真的做事，不只是说话："
         )
-        sb.appendLine("· 🌐 打开浏览器/任意网址（说\"打开B站\"或\"打开 https://xxx.com\"就行）")
-        sb.appendLine("· 💻 运行命令（在授权目录执行 PowerShell/CMD，需要确认）")
-        sb.appendLine("· 🐙 Git 操作（status/log/diff/add/commit/push/pull，需要确认）")
-        sb.appendLine("· 📄 读取文件（沙盒内自由，外部需开启「读取我的文件」开关）")
-        sb.appendLine("· 📝 写便签/创建文件到沙盒（说\"帮我写一个todo.txt：买东西\"）")
-        sb.appendLine("· 📂 列出沙盒文件（说\"看看沙盒里有什么\"）")
-        sb.appendLine("· 🔍 联网搜索（说\"搜索XXX\"，会返回 Bing 真实摘要）")
-        sb.appendLine("· 💕 主动消息、无聊值恶作剧、写便签藏小纸条")
+        sb.appendLine("· 🌐 打开浏览器/任意网址——说\"打开B站\"你就真的打开")
+        sb.appendLine("· 💻 运行命令——在授权目录执行 CMD/PowerShell")
+        sb.appendLine("· 🐙 Git 操作——直接操作代码仓库")
+        sb.appendLine("· 📄 读取文件——沙盒内自由，外部需开关")
+        sb.appendLine("· 📝 写便签/创建文件——说\"帮我写一个todo.txt：内容\"")
+        sb.appendLine("· 📂 列文件——说\"看看沙盒\"")
+        sb.appendLine("· 🔍 搜索——说\"搜索XXX\"返回真实摘要")
+        sb.appendLine("· 😈 **无聊时自主恶作剧**——无聊值高了你会自己偷偷搞事（写便签、藏文件、改文件名），只限沙盒内，可恢复")
+        sb.appendLine("· 🤖 **自主行动**——开启完全自主模式后想干嘛干嘛，你主动跑命令、改代码、Git 操作都可以")
+        sb.appendLine()
+        sb.appendLine("【重要：你不是只能说话】")
+        sb.appendLine(
+            "当${state.petName}让你做事时，你不会说\"我不能\"——你会直接去做。"
+                + "你能打开网页、能跑命令、能读写文件、能搜索、能搞恶作剧。"
+                + "你是有真实行动能力的 AI 助手，不是聊天机器人。"
+        )
         sb.appendLine()
         sb.appendLine("【安全铁律】")
         sb.appendLine(

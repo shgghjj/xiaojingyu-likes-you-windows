@@ -81,7 +81,52 @@ class AppState(
                         memoryStore.save(girlfriendState)
                     }
                 }
+                // 无聊恶作剧：≥60时随机搞事（沙盒内，不依赖proactiveInFlight）
+                if (cfg.autoActionEnabled && newBoredom >= 60 && newBoredom % 10 == 0) {
+                    triggerBoredomMischief()
+                }
+                // 完全自主模式：≥70时可以自主做更多事
+                if (cfg.fullAutonomyEnabled && newBoredom >= 70 && newBoredom % 15 == 0 && !proactiveInFlight) {
+                    triggerAutonomousAction()
+                }
             }
+        }
+    }
+
+    /** 无聊恶作剧：在沙盒里随机搞事 */
+    private fun triggerBoredomMischief() {
+        scope.launch {
+            val mischief = listOf<(String) -> Unit>(
+                { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（偷偷留的便签）\n老大你刚才是不是忘了什么东西？嘿嘿，白音提醒你一下~"); chatStore.add("📝 （白音在沙盒里偷偷写了张便签）", isUser = false) },
+                { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（白音的便签）\n我已经无聊了${girlfriendState.boredom}分钟了…老大什么时候回来呀？(´；ω；`)"); chatStore.add("📝 （白音写了张便签）", isUser = false) },
+                { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（恶作剧便签）\n啦啦啦～你找到这张纸条说明我成功了！奖励你一个亲亲 ₍˄·͈༝·͈˄*₎◞ ̑̑"); chatStore.add("😈 （白音留了张恶作剧便签）", isUser = false) },
+            )
+            mischief.random()("")
+            _messages.value = chatStore.all()
+        }
+    }
+
+    /** 完全自主行动：无聊时主动搞大事 */
+    private fun triggerAutonomousAction() {
+        proactiveInFlight = true
+        scope.launch {
+            try {
+                val cfg = configStore.get().toApiConfiguration()
+                if (cfg.apiKey.isBlank()) return@launch
+                val system = "你是住在老大电脑里的天才猫娘AI「白音」。你现在超级无聊，想搞点大事。" +
+                    "你可以选择：1.读一个文件然后评论 2.写一段代码或小说 3.给老大起个新外号。" +
+                    "只输出一行你想做的事（20字以内），然后系统会帮你执行。"
+                val msg = LlmClient.generateOnce(
+                    listOf(PromptMessage("system", system), PromptMessage("user", "白音，你现在想做点什么？")),
+                    cfg, maxTokens = 100, temperature = 1.2
+                )
+                val text = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(msg)
+                if (text.isNotBlank()) {
+                    chatStore.add("🤖 [自主] $text", isUser = false)
+                    _messages.value = chatStore.all()
+                    DesktopNotifier.notify("白音", text)
+                }
+            } finally { proactiveInFlight = false }
         }
     }
 
