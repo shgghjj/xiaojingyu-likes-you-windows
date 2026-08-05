@@ -52,7 +52,7 @@ fun App() {
                     RightPanel(appState)
                 }
             }
-            // 设置面板全屏覆盖
+            // 设置面板：DialogWindow 自动在最上层
             if (showSettings) {
                 SettingsPanel(appState, configStore, onDismiss = { showSettings = false })
             }
