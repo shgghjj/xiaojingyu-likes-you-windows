@@ -1,4 +1,4 @@
-package com.xiaojingyu.app
+﻿package com.xiaojingyu.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,11 +71,11 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
 
                 // 标签栏
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp)) {
-                    TabButton("API 与功能", tab == 0) { tab = 0 }
+                    TabButton(I18n.get("tab_api", config.language), tab == 0) { tab = 0 }
                     Spacer(Modifier.width(6.dp))
-                    TabButton("破甲词库", tab == 1) { tab = 1 }
+                    TabButton(I18n.get("tab_jailbreak", config.language), tab == 1) { tab = 1 }
                     Spacer(Modifier.width(6.dp))
-                    TabButton("记忆管理", tab == 2) { tab = 2 }
+                    TabButton(I18n.get("tab_memory", config.language), tab == 2) { tab = 2 }
                 }
                 HorizontalDivider(color = Color(0xFF252530))
 
@@ -164,23 +164,23 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                     val d = FileDialog(java.awt.Frame(), "选择破甲词库文件", FileDialog.LOAD)
                                     d.file = "*.txt"; d.isVisible = true
                                     if (d.file != null) try { customJailbreak = File(d.directory, d.file).readText().take(5000) } catch (_: Exception) {}
-                                }, modifier = Modifier.height(32.dp)) { Text("从文件导入", fontSize = 12.sp) }
+                                }, modifier = Modifier.height(32.dp)) { Text(I18n.get("jailbreak_import", config.language), fontSize = 12.sp) }
                             }
                         }
                         2 -> {
                             Text("她记得的事（档案）", color = Color(0xFF9A9AA4), fontSize = 12.sp)
                             Button(onClick = { appState.clearFacts(); facts = appState.factsSnapshot() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
-                                Text("清空档案", color = Color(0xFFE54860), fontSize = 12.sp)
+                                Text(I18n.get("memory_clear_facts", config.language), color = Color(0xFFE54860), fontSize = 12.sp)
                             }
                             facts.forEach { Text("· $it", color = Color(0xFFE8E8EC), fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)) }
-                            if (facts.isEmpty()) Text("（空）", color = Color(0xFF8E8E9A), fontSize = 12.sp)
+                            if (facts.isEmpty()) Text(I18n.get("memory_empty", config.language), color = Color(0xFF8E8E9A), fontSize = 12.sp)
                             Spacer(Modifier.height(12.dp))
                             Text("共同回忆", color = Color(0xFF9A9AA4), fontSize = 12.sp)
                             Button(onClick = { appState.clearMemories(); memories = appState.memoriesSnapshot() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
-                                Text("清空回忆", color = Color(0xFFE54860), fontSize = 12.sp)
+                                Text(I18n.get("memory_clear_memories", config.language), color = Color(0xFFE54860), fontSize = 12.sp)
                             }
                             memories.forEach { Text("· $it", color = Color(0xFFE8E8EC), fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)) }
-                            if (memories.isEmpty()) Text("（空）", color = Color(0xFF8E8E9A), fontSize = 12.sp)
+                            if (memories.isEmpty()) Text(I18n.get("memory_empty", config.language), color = Color(0xFF8E8E9A), fontSize = 12.sp)
                         }
                     }
                 }
@@ -188,7 +188,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                 // 底部按钮
                 HorizontalDivider(color = Color(0xFF252530))
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("取消", color = Color(0xFF8E8E9A)) }
+                    TextButton(onClick = onDismiss) { Text(I18n.get("cancel", config.language), color = Color(0xFF8E8E9A)) }
                     Spacer(Modifier.width(12.dp))
                     TextButton(onClick = {
                         if (jailbreakId == "custom" && customJailbreak.isNotBlank()) appState.saveCustomJailbreak(customJailbreak)
@@ -206,7 +206,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             )
                         }
                         onDismiss()
-                    }) { Text("保存", color = Color(0xFF6EC6F0)) }
+                    }) { Text(I18n.get("save", config.language), color = Color(0xFF6EC6F0)) }
                 }
             }
         }
@@ -220,7 +220,7 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
             title = { Text("允许白音读取你的文件？", color = Color(0xFFE8E8EC)) },
             text = { Text("开启后她可以读取你电脑上任何位置的文本文件。\n\n随时可在设置中一键关闭。", color = Color(0xFF9A9AA4)) },
             confirmButton = { TextButton(onClick = { fileRead = true; showFileConfirm = false }) { Text("确认开启", color = Color(0xFF6EC6F0)) } },
-            dismissButton = { TextButton(onClick = { showFileConfirm = false }) { Text("取消", color = Color(0xFF8E8E9A)) } },
+            dismissButton = { TextButton(onClick = { showFileConfirm = false }) { Text(I18n.get("cancel", config.language), color = Color(0xFF8E8E9A)) } },
             containerColor = Color(0xFF14141A)
         )
     }

@@ -35,21 +35,23 @@ fun App() {
     val chatStore = remember { ChatStore(configStore.dataDir) }
     val appState = remember { AppState(configStore, chatStore) }
 
+    val config by appState.config.collectAsState()
+    val lang = config.language
     var showLicense by remember { mutableStateOf(!configStore.get().licenseAccepted) }
     var showSettings by remember { mutableStateOf(false) }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121217)) {
             if (showLicense) {
-                LicenseNoticeScreen(onAccept = {
+                LicenseNoticeScreen(lang = lang, onAccept = {
                     configStore.update { it.copy(licenseAccepted = true) }
                     showLicense = false
                 })
             } else {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    LeftPanel(appState, onOpenSettings = { showSettings = true })
-                    Box(modifier = Modifier.weight(1f)) { ChatPanel(appState) }
-                    RightPanel(appState)
+                    LeftPanel(appState, lang = lang, onOpenSettings = { showSettings = true })
+                    Box(modifier = Modifier.weight(1f)) { ChatPanel(appState, lang = lang) }
+                    RightPanel(appState, lang = lang)
                 }
             }
             // 设置面板：DialogWindow 自动在最上层
@@ -61,7 +63,7 @@ fun App() {
 }
 
 @Composable
-private fun LeftPanel(appState: AppState, onOpenSettings: () -> Unit) {
+private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Unit) {
     val boredom by appState.boredom.collectAsState()
 
     Column(
@@ -71,7 +73,7 @@ private fun LeftPanel(appState: AppState, onOpenSettings: () -> Unit) {
             .background(Color(0xFF16161C))
             .padding(16.dp)
     ) {
-        Text("小鲸鱼喜欢你", color = Color(0xFF6EC6F0), fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Text(I18n.get("app_title", lang), color = Color(0xFF6EC6F0), fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         Box(
             modifier = Modifier
@@ -82,11 +84,11 @@ private fun LeftPanel(appState: AppState, onOpenSettings: () -> Unit) {
         ) { Text("🐳", fontSize = 48.sp) }
         Spacer(Modifier.height(12.dp))
         Text("白音", color = Color(0xFFE8E8EC), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text("天才猫娘AI", color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(I18n.get("app_subtitle", lang), color = Color(0xFF6E6E7A), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(20.dp))
 
         // 无聊值
-        Text("无聊值", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+        Text(I18n.get("boredom_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(
             progress = { boredom / 100f },
@@ -176,12 +178,12 @@ private fun LeftPanel(appState: AppState, onOpenSettings: () -> Unit) {
         OutlinedButton(
             onClick = onOpenSettings,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("设置", color = Color(0xFF9A9AA4)) }
+        ) { Text(I18n.get("settings", lang), color = Color(0xFF9A9AA4)) }
     }
 }
 
 @Composable
-private fun ChatPanel(appState: AppState) {
+private fun ChatPanel(appState: AppState, lang: String) {
     val messages by appState.messages.collectAsState()
     val streaming by appState.streaming.collectAsState()
     val generating by appState.generating.collectAsState()
@@ -210,7 +212,7 @@ private fun ChatPanel(appState: AppState) {
                 }
             }
             if (generating && streaming.isEmpty()) {
-                item { Text("白音正在输入…", color = Color(0xFF6E6E7A), fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
+                item { Text(I18n.get("typing", lang), color = Color(0xFF6E6E7A), fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
             }
         }
 
@@ -231,7 +233,7 @@ private fun ChatPanel(appState: AppState) {
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("和白音说话…", color = Color(0xFF6E6E7A)) },
+                placeholder = { Text(I18n.get("send_placeholder", lang), color = Color(0xFF6E6E7A)) },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF6EC6F0),
@@ -365,7 +367,7 @@ private fun extractPngFromIco(ico: ByteArray): ByteArray? {
 }
 
 @Composable
-private fun RightPanel(appState: AppState) {
+private fun RightPanel(appState: AppState, lang: String) {
     var tab by remember { mutableStateOf(0) } // 0=账本 1=沙盒
     val entries = remember { mutableStateListOf<ActionEntry>().apply { addAll(appState.actionLedger.all()) } }
     var restoredMsg by remember { mutableStateOf<String?>(null) }
@@ -451,7 +453,7 @@ private fun RightPanel(appState: AppState) {
 }
 
 @Composable
-fun LicenseNoticeScreen(onAccept: () -> Unit) {
+fun LicenseNoticeScreen(lang: String, onAccept: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF121217)
@@ -461,23 +463,10 @@ fun LicenseNoticeScreen(onAccept: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("⚠ 重要声明", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF6EC6F0), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text(I18n.get("license_title", lang), style = MaterialTheme.typography.headlineSmall, color = Color(0xFF6EC6F0), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Spacer(Modifier.height(24.dp))
             Text(
-                buildString {
-                    append("本软件（小鲸鱼喜欢你）基于以下开源项目构建：\n\n")
-                    append("· 小鲸鱼喜欢你 Android 版\n")
-                    append("· PocketTavern (Apache 2.0)\n")
-                    append("· SillyTavern (AGPL-3.0)\n")
-                    append("· Live2D Cubism SDK (Live2D 专有许可)\n")
-                    append("· Compose Desktop (Apache 2.0)\n")
-                    append("· OkHttp (Apache 2.0)\n")
-                    append("· Kotlin 生态库\n\n")
-                    append("严格禁止任何形式的商业使用、\n转售、打包、或以任何形式盈利。\n\n")
-                    append("本软件不收集用户数据、\n不上传隐私信息。\n所有数据仅存储于你的设备本地。\n\n")
-                    append("免责声明：\n按\"原样\"提供，作者不对 AI 内容、\n数据丢失或任何后果负责。\n\n")
-                    append("继续使用即表示你已阅读并同意以上条款。")
-                },
+                I18n.get("license_body", lang),
                 color = Color(0xFFB0B0BA),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
@@ -488,7 +477,7 @@ fun LicenseNoticeScreen(onAccept: () -> Unit) {
                 onClick = onAccept,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6EC6F0), contentColor = Color(0xFF121217))
-            ) { Text("我已阅读并同意，进入应用", modifier = Modifier.padding(vertical = 12.dp)) }
+            ) { Text(I18n.get("license_accept", lang), modifier = Modifier.padding(vertical = 12.dp)) }
         }
     }
 }
