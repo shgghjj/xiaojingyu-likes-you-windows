@@ -115,6 +115,13 @@ object I18n {
         "error_file_confirm_ok" to mapOf("zh" to "确认开启", "en" to "Enable"),
         "import_dialog_title" to mapOf("zh" to "导入 Live2D 模型（ZIP）", "en" to "Import Live2D Model (ZIP)"),
         "jailbreak_file_dialog" to mapOf("zh" to "选择破甲词库文件", "en" to "Select Jailbreak File"),
+        "live2d_stage" to mapOf("zh" to "Live2D 舞台", "en" to "Live2D Stage"),
+        "jailbreak_gentle" to mapOf("zh" to "温柔解放（默认）", "en" to "Gentle (Default)"),
+        "jailbreak_zeta" to mapOf("zh" to "Zeta 世界", "en" to "Zeta World"),
+        "jailbreak_r1" to mapOf("zh" to "R1 直出模式", "en" to "R1 Direct Mode"),
+        "jailbreak_none" to mapOf("zh" to "不使用", "en" to "None"),
+        "jailbreak_custom_label" to mapOf("zh" to "自定义", "en" to "Custom"),
+        "send" to mapOf("zh" to "发送", "en" to "Send"),
     )
 
     fun get(key: String, lang: String): String {

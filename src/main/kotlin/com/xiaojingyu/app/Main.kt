@@ -83,7 +83,7 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
             contentAlignment = Alignment.Center
         ) { Text("🐳", fontSize = 48.sp) }
         Spacer(Modifier.height(12.dp))
-        Text("白音", color = Color(0xFFE8E8EC), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(appState.name, color = Color(0xFFE8E8EC), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Text(I18n.get("app_subtitle", lang), color = Color(0xFF6E6E7A), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(20.dp))
 
@@ -98,10 +98,10 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
         )
         Spacer(Modifier.height(4.dp))
         val boredomLabel = when {
-            boredom >= 80 -> "🎭 超级无聊！要搞事"
-            boredom >= 60 -> "😴 有点无聊了"
-            boredom >= 30 -> "💤 稍微无聊"
-            else -> "✨ 状态良好"
+            boredom >= 80 -> I18n.get("boredom_super", lang)
+            boredom >= 60 -> I18n.get("boredom_bit", lang)
+            boredom >= 30 -> I18n.get("boredom_slightly", lang)
+            else -> I18n.get("boredom_ok", lang)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("$boredom / 100", color = Color(0xFF8E8E9A), fontSize = 11.sp)
@@ -112,7 +112,7 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
         Spacer(Modifier.weight(1f))
 
         // Live2D 模型管理
-        Text("Live2D 模型", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+        Text(I18n.get("live2d_model", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
         var selectedModel by remember { mutableStateOf(Live2DModelManager.currentModel) }
         val models = remember { Live2DModelManager.listModels() }
@@ -123,7 +123,7 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    selectedModel ?: "选择模型▼",
+                    selectedModel ?: I18n.get("live2d_select", lang),
                     color = Color(0xFF6EC6F0),
                     fontSize = 12.sp
                 )
@@ -141,7 +141,7 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
                 }
                 if (models.isEmpty()) {
                     DropdownMenuItem(
-                        text = { Text("（无模型）", color = Color(0xFF6E6E7A), fontSize = 12.sp) },
+                        text = { Text(I18n.get("live2d_none", lang), color = Color(0xFF6E6E7A), fontSize = 12.sp) },
                         onClick = { expanded = false }
                     )
                 }
@@ -152,7 +152,7 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
             // 导入按钮
             OutlinedButton(
                 onClick = {
-                    val dialog = java.awt.FileDialog(java.awt.Frame(), "导入 Live2D 模型（ZIP）", java.awt.FileDialog.LOAD)
+                    val dialog = java.awt.FileDialog(java.awt.Frame(), I18n.get("import_dialog_title", lang), java.awt.FileDialog.LOAD)
                     dialog.file = "*.zip"
                     dialog.isVisible = true
                     if (dialog.file != null) {
@@ -164,13 +164,13 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
                     }
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("导入", color = Color(0xFF6EC6F0), fontSize = 12.sp) }
+            ) { Text(I18n.get("live2d_import", lang), color = Color(0xFF6EC6F0), fontSize = 12.sp) }
             Spacer(Modifier.width(4.dp))
             // 打开舞台
             OutlinedButton(
                 onClick = { Live2DStageServer.openInBrowser() },
                 modifier = Modifier.weight(1f)
-            ) { Text("打开", color = Color(0xFF9A9AA4), fontSize = 12.sp) }
+            ) { Text(I18n.get("live2d_open", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp) }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -253,7 +253,7 @@ private fun ChatPanel(appState: AppState, lang: String) {
                 enabled = input.isNotBlank() && !generating,
                 modifier = Modifier.background(Color(0xFF6EC6F0), RoundedCornerShape(24.dp))
             ) {
-                Icon(Icons.Default.Send, contentDescription = "发送", tint = Color(0xFF121217))
+                Icon(Icons.Default.Send, contentDescription = I18n.get("send", lang), tint = Color(0xFF121217))
             }
         }
     }
@@ -325,10 +325,11 @@ fun main() = application {
     SystemTrayManager.install()
 
     val windowIcon = remember { loadAppIcon() }
+    val appLang = runCatching { ConfigStore().get().language }.getOrDefault("zh")
 
     Window(
         onCloseRequest = { exitApplication() },
-        title = "小鲸鱼喜欢你",
+        title = I18n.get("app_title", appLang),
         icon = windowIcon,
         state = rememberWindowState(size = DpSize(1300.dp, 850.dp))
     ) {
@@ -381,9 +382,9 @@ private fun RightPanel(appState: AppState, lang: String) {
             .padding(12.dp)
     ) {
         Row {
-            TabButton("行动账本", tab == 0) { tab = 0 }
+            TabButton(I18n.get("right_ledger", lang), tab == 0) { tab = 0 }
             Spacer(Modifier.width(8.dp))
-            TabButton("沙盒", tab == 1) { tab = 1; sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) }
+            TabButton(I18n.get("right_sandbox", lang), tab == 1) { tab = 1; sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) }
         }
         Spacer(Modifier.height(8.dp))
 
@@ -391,12 +392,12 @@ private fun RightPanel(appState: AppState, lang: String) {
             Button(
                 onClick = {
                     val restored = appState.restoreAllActions()
-                    restoredMsg = "已恢复 $restored 项操作"
+                    restoredMsg = I18n.get("right_restored", lang).replace("{}", restored.toString())
                     entries.clear(); entries.addAll(appState.actionLedger.all())
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
-            ) { Text("一键恢复所有操作", color = Color(0xFF6EC6F0)) }
+            ) { Text(I18n.get("right_restore", lang), color = Color(0xFF6EC6F0)) }
             restoredMsg?.let {
                 Text(it, color = Color(0xFFF0A050), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
             }
@@ -424,9 +425,9 @@ private fun RightPanel(appState: AppState, lang: String) {
                 onClick = { sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
-            ) { Text("刷新沙盒", color = Color(0xFF6EC6F0)) }
+            ) { Text(I18n.get("right_sandbox_refresh", lang), color = Color(0xFF6EC6F0)) }
             Spacer(Modifier.height(8.dp))
-            Text("沙盒位置：文档/小鲸鱼喜欢你/沙盒", color = Color(0xFF6E6E7A), fontSize = 11.sp)
+            Text(I18n.get("right_sandbox_path", lang), color = Color(0xFF6E6E7A), fontSize = 11.sp)
             Spacer(Modifier.height(4.dp))
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(sandboxFiles) { f ->
@@ -436,7 +437,7 @@ private fun RightPanel(appState: AppState, lang: String) {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
                     ) {
                         Text(
-                            if (f.name.startsWith(".白音藏起来的_")) "🔒 ${f.name.removePrefix(".白音藏起来的_")}（藏起来了）"
+                            if (f.name.startsWith(".白音藏起来的_")) "🔒 ${f.name.removePrefix(".白音藏起来的_")} (${I18n.get("right_hidden", lang)})"
                             else "📄 ${f.name}",
                             color = Color(0xFFE8E8EC),
                             fontSize = 12.sp,
@@ -445,7 +446,7 @@ private fun RightPanel(appState: AppState, lang: String) {
                     }
                 }
                         if (sandboxFiles.isEmpty()) {
-                    item { Text("沙盒是空的", color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
+                    item { Text(I18n.get("right_sandbox_empty", lang), color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
                 }
             }
         }
