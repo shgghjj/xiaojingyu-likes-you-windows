@@ -109,6 +109,13 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
             Text(boredomLabel, color = if (boredom >= 60) Color(0xFFF0A050) else Color(0xFF6E6E7A), fontSize = 10.sp)
         }
 
+        Spacer(Modifier.height(6.dp))
+        // 测试自主行动按钮
+        OutlinedButton(
+            onClick = { appState.testAutonomousAction() },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+        ) { Text("🧪 测试自主", color = Color(0xFFF0A050), fontSize = 11.sp) }
+
         Spacer(Modifier.weight(1f))
 
         // 清空对话

@@ -304,6 +304,17 @@ class AppState(
         }
     }
 
+    /** 测试：立刻触发恶作剧和自主行动 */
+    fun testAutonomousAction() {
+        girlfriendState = girlfriendState.copy(boredom = 70)
+        _boredom.value = 70
+        triggerBoredomMischief()
+        scope.launch {
+            kotlinx.coroutines.delay(2000)
+            triggerAutonomousAction()
+        }
+    }
+
     fun updateConfig(transform: (AppConfig) -> AppConfig) {
         configStore.update(transform)
         _config.value = configStore.get()
