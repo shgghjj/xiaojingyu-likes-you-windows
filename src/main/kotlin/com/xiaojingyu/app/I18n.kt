@@ -122,6 +122,7 @@ object I18n {
         "jailbreak_none" to mapOf("zh" to "不使用", "en" to "None"),
         "jailbreak_custom_label" to mapOf("zh" to "自定义", "en" to "Custom"),
         "send" to mapOf("zh" to "发送", "en" to "Send"),
+        "model_custom" to mapOf("zh" to "✏️ 自定义（手输模型名）", "en" to "✏️ Custom (type model name)"),
     )
 
     fun get(key: String, lang: String): String {

@@ -114,10 +114,24 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             )
                             Spacer(Modifier.height(10.dp))
                             Text(I18n.get("model_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            // 模型下拉选择
-                            val deepseekModels = listOf(
-                                "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner",
-                                "deepseek-v3", "deepseek-coder", "deepseek-r1"
+                            // 模型下拉选择：主流模型全收录，可手输自定义
+                            val allModels = listOf(
+                                // DeepSeek
+                                "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner", "deepseek-v3", "deepseek-coder", "deepseek-r1",
+                                // OpenAI
+                                "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "o1", "o1-mini", "o3-mini",
+                                // Anthropic
+                                "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229", "claude-3-sonnet-20240229",
+                                // Google
+                                "gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash",
+                                // Meta / Llama
+                                "llama-3.3-70b-instruct", "llama-3.1-405b-instruct", "llama-3.1-70b-instruct", "llama-3.1-8b-instruct",
+                                // Mistral
+                                "mistral-large-latest", "mistral-medium-latest", "mistral-small-latest",
+                                // Qwen / 通义
+                                "qwen2.5-72b-instruct", "qwen2.5-32b-instruct", "qwen2.5-7b-instruct",
+                                // 其他
+                                "grok-2", "grok-beta", "command-r-plus", "yi-large", "glm-4", "moonshot-v1-32k", "ernie-4.0", "doubao-pro"
                             )
                             var modelExpanded by remember { mutableStateOf(false) }
                             Box {
@@ -142,12 +156,17 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                     modifier = Modifier.matchParentSize().clickable { modelExpanded = true }
                                 )
                                 DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
-                                    deepseekModels.forEach { m ->
+                                    allModels.forEach { m ->
                                         DropdownMenuItem(
                                             text = { Text(m, fontSize = 13.sp) },
                                             onClick = { model = m; modelExpanded = false }
                                         )
                                     }
+                                    HorizontalDivider(color = Color(0xFF252530))
+                                    DropdownMenuItem(
+                                        text = { Text(I18n.get("model_custom", lang), fontSize = 13.sp, color = Color(0xFF6EC6F0)) },
+                                        onClick = { modelExpanded = false }
+                                    )
                                 }
                             }
                             Spacer(Modifier.height(14.dp))
