@@ -110,6 +110,8 @@ object LlmClient {
             } else {
                 emit(StreamEvent.Error(e.message ?: "网络错误"))
             }
+            } finally {
+            if (currentCall === call) currentCall = null
         }
     }.flowOn(Dispatchers.IO)
 
