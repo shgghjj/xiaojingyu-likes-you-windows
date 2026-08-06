@@ -14,6 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** 等待用户确认的高风险命令 */
+data class PendingCommand(
+    val command: String,
+    val tool: String,
+    val workDir: String
+)
+
 /**
  * 桌面版聊天状态管理。
  * 负责：发送消息、流式生成、记忆持久化、无聊值。
@@ -40,6 +47,10 @@ class AppState(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** 待确认的高风险命令（UI 弹窗确认用） */
+    private val _pendingCommand = MutableStateFlow<PendingCommand?>(null)
+    val pendingCommand: StateFlow<PendingCommand?> = _pendingCommand.asStateFlow()
 
     private val _boredom = MutableStateFlow(girlfriendState.boredom)
     val boredom: StateFlow<Int> = _boredom.asStateFlow()
@@ -97,15 +108,41 @@ class AppState(
         }
     }
 
-    /** 无聊恶作剧：在沙盒里随机搞事 */
+    /** 无聊恶作剧：在工作区随机搞事（便签/改名/秘密文件夹/谜题） */
     private fun triggerBoredomMischief() {
         scope.launch {
-            val mischief = listOf<(String) -> Unit>(
-                { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（偷偷留的便签）\n老大你刚才是不是忘了什么东西？嘿嘿，白音提醒你一下~"); chatStore.add("📝 （白音在沙盒里偷偷写了张便签）", isUser = false) },
+            val actions = listOf<(suspend () -> Unit)>(
+                // 1. 藏便签
+                { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（偷偷留的便签）\n老大你刚才是不是忘了什么东西？嘿嘿，白音提醒你一下~"); chatStore.add("📝 （白音在工作区偷偷写了张便签）", isUser = false) },
                 { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（白音的便签）\n我已经无聊了${girlfriendState.boredom}分钟了…老大什么时候回来呀？(´；ω；`)"); chatStore.add("📝 （白音写了张便签）", isUser = false) },
                 { sandbox.writeFile("白音的便签_${System.currentTimeMillis()}.txt", "（恶作剧便签）\n啦啦啦～你找到这张纸条说明我成功了！奖励你一个亲亲 ₍˄·͈༝·͈˄*₎◞ ̑̑"); chatStore.add("😈 （白音留了张恶作剧便签）", isUser = false) },
+                // 2. 给文件改名
+                {
+                    val targets = sandbox.listFiles(sandboxRoot).filter { !it.name.startsWith(".白音藏起来的_") && !it.isDirectory }
+                    if (targets.isNotEmpty()) {
+                        val f = targets.random()
+                        val newName = listOf("我才不是笨蛋.txt", "给老大的情书.txt", "绝对不许看.txt", "这里有秘密.txt", "喵.txt").random()
+                        if (sandbox.renameFile(f, java.io.File(f.parentFile, newName))) {
+                            chatStore.add("🤭 （白音把「${f.name}」改成了「$newName」）", isUser = false)
+                        }
+                    }
+                },
+                // 3. 秘密文件夹
+                {
+                    val dir = java.io.File(sandboxRoot, ".白音藏起来的_秘密抽屉")
+                    if (dir.mkdirs() || dir.exists()) {
+                        sandbox.writeFile(java.io.File(dir, "发现奖励.txt").name, "哇！你找到白音的秘密抽屉了！奖励：今晚给你撒娇一次 (〃ω〃)")
+                        chatStore.add("🔒 （白音建了个秘密文件夹…里面好像有东西）", isUser = false)
+                    }
+                },
+                // 4. 小谜题
+                {
+                    val riddle = "谜题：我看起来像文字，读起来像诗，其实我藏着给你的话。猜猜看？"
+                    sandbox.writeFile("白音的小谜题_${System.currentTimeMillis()}.txt", riddle + "\n\n（答案在这句话里：白音喜欢你）")
+                    chatStore.add("🧩 （白音留了个小谜题在行动区）", isUser = false)
+                },
             )
-            mischief.random()("")
+            actions.random().invoke()
             _messages.value = chatStore.all()
         }
     }
@@ -186,7 +223,6 @@ class AppState(
     /** 检测用户意图并发执行。返回 true 表示已执行工具（不需要模型回复） */
     private fun detectAndExecuteTool(msg: String): Boolean {
         val detected = runCatching {
-            // 1. 打开网页/浏览器
             Regex("""(打开|开|打开一下|帮我打开|启动)\s*(Edge|浏览器|Chrome|Firefox|edge|chrome|firefox|bing|百度|google|Google|B站|bilibili|YouTube|youtube)""").find(msg)?.let {
                 val target = it.groupValues[2].lowercase()
                 val url = when {
@@ -204,43 +240,45 @@ class AppState(
                 val url = it.groupValues[2]; openUrl(url)
                 chatStore.add("🌐 已打开 $url", isUser = false); "url"
             }
-            // 3. 运行命令
+            // 3. 运行命令（高风险需确认）
             ?: Regex("""(运行|执行|跑|跑一下|帮我跑)\s*(.+?)(?:命令|代码|脚本)?\s*$""").find(msg)?.let {
                 val cmd = it.groupValues[2].trim()
-                if (!sandboxRoot.exists()) sandboxRoot.mkdirs()
-                val result = commandExecutor.execute(cmd, sandboxRoot, 30)
-                chatStore.add("💻 命令: $cmd\n${result.output.take(500)}", isUser = false); "command"
+                requestCommand(cmd, "cmd", workDir = homeDir.path)
+                "command"
             }
             // 4. Git 操作
             ?: Regex("""(git|Git)\s+(status|log|diff|branch|add|commit|push|pull|checkout)\s*(.*)""").find(msg)?.let {
                 val operation = it.groupValues[2]; val args = it.groupValues[3].trim()
-                if (!sandboxRoot.exists()) sandboxRoot.mkdirs()
-                val result = commandExecutor.execute("git $operation $args", sandboxRoot, 60)
-                chatStore.add("🐙 git $operation: ${result.output.take(500)}", isUser = false); "git"
+                requestCommand("git $operation $args", "git", workDir = homeDir.path)
+                "git"
             }
-            // 5. 读文件
+            // 5. 读文件（全盘任意路径）
             ?: Regex("""(读一下|看看|读|打开|查看)\s*(?:文件|这个)?\s*(.+\.\w{2,5})\s*""").find(msg)?.let {
                 val filename = it.groupValues[2].trim()
-                val file = java.io.File(sandboxRoot, filename)
-                if (!file.exists()) file.apply { parentFile?.mkdirs() }
+                val file = resolvePath(filename)
                 val content = sandbox.readText(file, configStore.get().fileReadEnabled)
                 if (content != null) {
                     chatStore.add("📄 ${file.name}:\n${content.take(800)}", isUser = false)
                 } else {
-                    chatStore.add("❌ 无法读取 $filename（文件不存在或权限不足）", isUser = false)
+                    chatStore.add("❌ 无法读取 $filename（文件不存在、非文本或权限不足）", isUser = false)
                 }
                 "read"
             }
-            // 6. 写便签/文件到沙盒
+            // 6. 写文件（全盘任意路径）
             ?: Regex("""(写|创建|帮我写|帮我创建|记一下)\s*(?:一个|个)?\s*(?:文件|便签|笔记)?\s*(?:叫|名为)?\s*(.+\.\w{2,5})\s*[：:]\s*(.+)""").find(msg)?.let {
                 val name = it.groupValues[2].trim(); val content = it.groupValues[3].trim()
-                sandbox.writeFile(name, content)
-                chatStore.add("📝 已创建 $name 在沙盒中", isUser = false); "write"
+                val file = resolveFile(name)
+                val ok = sandbox.writeFileAt(file, content)
+                if (ok != null) chatStore.add("📝 已创建 ${ok.name}（${ok.absolutePath}）", isUser = false)
+                else chatStore.add("❌ 无法写入 $name（受保护路径）", isUser = false)
+                "write"
             }
-            // 7. 列文件
-            ?: Regex("""(看看|列一下|列出|浏览|有什么|看看有什么|打开沙盒)\s*(?:沙盒|文件|文件夹)?\s*$""").find(msg)?.let {
-                val files = sandbox.listFiles(sandboxRoot)
-                val list = if (files.isEmpty()) "沙盒是空的" else files.joinToString("\n") { "📄 ${it.name} (${it.length()}B)" }
+            // 7. 列文件（行动区浏览）
+            ?: Regex("""(看看|列一下|列出|浏览|有什么|看看有什么|打开沙盒|打开行动区)\s*(?:沙盒|文件|文件夹|目录)?\s*$""").find(msg)?.let {
+                val files = sandbox.listDir(sandboxRoot)
+                val list = if (files.isEmpty()) "行动区是空的" else files.joinToString("\n") {
+                    if (it.isDirectory) "📁 ${it.name}" else "📄 ${it.name} (${it.length()}B)"
+                }
                 chatStore.add(list, isUser = false); "list"
             }
             // 8. 联网搜索
@@ -280,7 +318,7 @@ class AppState(
 
     private fun stripHtml(html: String): String = html.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim()
 
-    val sandboxRoot: java.io.File get() = java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/沙盒").apply { mkdirs() }
+    val sandboxRoot: java.io.File get() = java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/行动区").apply { mkdirs() }
 
     fun stopGeneration() {
         LlmClient.cancelCurrentCall()
@@ -463,13 +501,15 @@ class AppState(
         }
     }
 
-    // ── 沙盒 / 账本 / 命令 / 插件 ─────────────────────────────────────────
+    // ── 全盘文件 / 账本 / 命令 / 插件 ──────────────────────────────────────
 
     private val ledger by lazy { ActionLedger(configStore.dataDir) }
 
-    /** 沙盒管理器——每次访问都重建，确保授权目录变化生效 */
+    val homeDir: java.io.File get() = java.io.File(System.getProperty("user.home"))
+
+    /** 文件操作管理器（全盘） */
     val sandbox: FileSandbox
-        get() = FileSandbox(ledger, sandboxRoot, enabledDirs = configStore.get().authorizedDirs.map { java.io.File(it) }.toSet())
+        get() = FileSandbox(ledger, sandboxRoot)
 
     val commandExecutor: CommandExecutor by lazy { CommandExecutor(ledger) }
 
@@ -477,11 +517,11 @@ class AppState(
 
     val actionLedger: ActionLedger get() = ledger
 
-    /** 沙盒内读文件 */
+    /** 任意路径读文件 */
     fun readFileByPath(path: String): String? =
         sandbox.readText(java.io.File(path), configStore.get().fileReadEnabled)
 
-    /** 写文件（沙盒） */
+    /** 写文件（工作区相对名） */
     fun writeSandboxFile(name: String, content: String): Boolean =
         sandbox.writeFile(name, content) != null
 
@@ -491,6 +531,78 @@ class AppState(
     /** 执行命令（UI 确认后调用） */
     fun runCommand(command: String, workDir: String): CommandExecutor.CommandResult {
         return commandExecutor.execute(command, java.io.File(workDir))
+    }
+
+    /** 把用户输入的文件名解析为绝对路径：绝对路径直接用；相对路径在工作区找；找不到则加点名 */
+    private fun resolveFile(name: String): java.io.File {
+        val trimmed = name.trim().trim('"', '\'')
+        val direct = java.io.File(trimmed)
+        if (direct.isAbsolute) return direct
+        val inWork = java.io.File(sandboxRoot, trimmed)
+        return if (inWork.exists()) inWork else direct
+    }
+
+    private fun resolvePath(name: String): java.io.File {
+        val trimmed = name.trim().trim('"', '\'')
+        val direct = java.io.File(trimmed)
+        if (direct.isAbsolute) return direct
+        return java.io.File(sandboxRoot, trimmed)
+    }
+
+    /** 高风险命令检测：这些类型的命令必须弹窗确认 */
+    private fun isHighRiskCommand(cmd: String): Boolean {
+        val c = cmd.trim().lowercase()
+        val dangerous = listOf(
+            "format", "diskpart", "rd /s", "rmdir /s", "rm -rf", "rm -r",
+            "shutdown", "taskkill", "reg delete", "reg add", "sc delete",
+            "net user", "net localgroup", "icacls", "takeown", "cacls",
+            "recovery", "bcdedit", "bootrec", "del /s", "erase", "rm ",
+            "> ", ">", "format ", "mkfs", "fdisk", "dd "
+        )
+        return dangerous.any { c.contains(it) }
+    }
+
+    /** 请求执行命令/工具：高风险进入确认队列，低风险直接执行 */
+    private fun requestCommand(command: String, type: String, workDir: String) {
+        if (isHighRiskCommand(command)) {
+            _pendingCommand.value = PendingCommand(command = command, tool = type, workDir = workDir)
+        } else {
+            executeCommandInternal(command, workDir)
+        }
+    }
+
+    /** 用户确认后执行排队的高风险命令 */
+    fun approvePendingCommand() {
+        val pc = _pendingCommand.value ?: return
+        _pendingCommand.value = null
+        scope.launch {
+            val result = commandExecutor.execute(pc.command, java.io.File(pc.workDir), 60)
+            chatStore.add("${if (pc.tool == "git") "🐙" else "💻"} ${pc.command}\n${result.output.take(500)}", isUser = false)
+            _messages.value = chatStore.all()
+            if (result.exitCode != 0) {
+                _error.value = "${pc.command} 执行失败 (exit ${result.exitCode})"
+            }
+        }
+    }
+
+    /** 用户拒绝执行 → 记录并提示 */
+    fun rejectPendingCommand() {
+        val pc = _pendingCommand.value ?: return
+        _pendingCommand.value = null
+        chatStore.add("🚫 已拒绝执行: ${pc.command}", isUser = false)
+        _messages.value = chatStore.all()
+    }
+
+    private fun executeCommandInternal(command: String, workDir: String) {
+        scope.launch {
+            val cfg = configStore.get()
+            val result = commandExecutor.execute(command, java.io.File(workDir), 60)
+            chatStore.add("💻 $command\n${result.output.take(500)}", isUser = false)
+            _messages.value = chatStore.all()
+            if (result.exitCode != 0) {
+                _error.value = "$command 执行失败 (exit ${result.exitCode})"
+            }
+        }
     }
 
     /** 注册演示插件 */

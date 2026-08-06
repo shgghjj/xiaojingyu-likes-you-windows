@@ -10,6 +10,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -220,8 +224,37 @@ private fun ChatPanel(appState: AppState, lang: String) {
     val streaming by appState.streaming.collectAsState()
     val generating by appState.generating.collectAsState()
     val error by appState.error.collectAsState()
+    val pendingCmd by appState.pendingCommand.collectAsState()
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    // 高风险命令确认弹窗
+    pendingCmd?.let { pc ->
+        AlertDialog(
+            onDismissRequest = { appState.rejectPendingCommand() },
+            title = { Text("⚠ ${I18n.get("cmd_confirm_title", lang)}", color = Color(0xFFE54860)) },
+            text = {
+                Column {
+                    Text(I18n.get("cmd_confirm_body", lang), color = Color(0xFF9A9AA4), fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFF20202A)) {
+                        Text(pc.command, color = Color(0xFFF0A050), fontSize = 13.sp, modifier = Modifier.padding(10.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { appState.approvePendingCommand() }) {
+                    Text(I18n.get("cmd_confirm_ok", lang), color = Color(0xFF6EC6F0))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { appState.rejectPendingCommand() }) {
+                    Text(I18n.get("cmd_confirm_no", lang), color = Color(0xFF8E8E9A))
+                }
+            },
+            containerColor = Color(0xFF14141A)
+        )
+    }
 
     LaunchedEffect(messages.size, streaming) {
         if (messages.isNotEmpty() || streaming.isNotEmpty()) {
@@ -264,7 +297,18 @@ private fun ChatPanel(appState: AppState, lang: String) {
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).onPreviewKeyEvent { event ->
+                    val awt = event.nativeKeyEvent as? java.awt.event.KeyEvent
+                    if (awt != null && awt.id == java.awt.event.KeyEvent.KEY_PRESSED &&
+                        awt.keyCode == java.awt.event.KeyEvent.VK_ENTER && !awt.isShiftDown
+                    ) {
+                        if (input.isNotBlank() && !generating) {
+                            appState.sendMessage(input)
+                            input = ""
+                        }
+                        true
+                    } else false
+                },
                 placeholder = { Text(I18n.get("send_placeholder", lang), color = Color(0xFF6E6E7A)) },
                 singleLine = false,
                 minLines = 1,
@@ -432,10 +476,11 @@ private fun extractPngFromIco(ico: ByteArray): ByteArray? {
 
 @Composable
 private fun RightPanel(appState: AppState, lang: String) {
-    var tab by remember { mutableStateOf(0) } // 0=账本 1=沙盒
+    var tab by remember { mutableStateOf(0) } // 0=账本 1=文件
     val entries = remember { mutableStateListOf<ActionEntry>().apply { addAll(appState.actionLedger.all()) } }
     var restoredMsg by remember { mutableStateOf<String?>(null) }
-    var sandboxFiles by remember { mutableStateOf<List<java.io.File>>(appState.sandbox.listFiles(appState.sandboxRoot)) }
+    var currentDir by remember { mutableStateOf(java.io.File(appState.sandboxRoot.absolutePath)) }
+    var entries2 by remember { mutableStateOf(appState.sandbox.listDir(currentDir)) }
     val refreshLedger = {
         entries.clear(); entries.addAll(appState.actionLedger.all())
     }
@@ -456,7 +501,7 @@ private fun RightPanel(appState: AppState, lang: String) {
         Row {
             TabButton(I18n.get("right_ledger", lang), tab == 0) { tab = 0; refreshLedger() }
             Spacer(Modifier.width(8.dp))
-            TabButton(I18n.get("right_sandbox", lang), tab == 1) { tab = 1; sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) }
+            TabButton(I18n.get("right_files", lang), tab == 1) { tab = 1 }
         }
         Spacer(Modifier.height(8.dp))
 
@@ -505,34 +550,52 @@ private fun RightPanel(appState: AppState, lang: String) {
                 }
             }
         } else {
-            Button(
-                onClick = { sandboxFiles = appState.sandbox.listFiles(appState.sandboxRoot) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
-            ) { Text(I18n.get("right_sandbox_refresh", lang), color = Color(0xFF6EC6F0)) }
-            Spacer(Modifier.height(8.dp))
-            Text(I18n.get("right_sandbox_path", lang), color = Color(0xFF6E6E7A), fontSize = 11.sp)
+            // ── 全盘文件浏览器 ──
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { currentDir = currentDir.parentFile ?: currentDir; entries2 = appState.sandbox.listDir(currentDir) },
+                    enabled = currentDir.parentFile != null,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
+                ) { Text("⬆ ${I18n.get("right_file_up", lang)}", color = Color(0xFF6EC6F0), fontSize = 11.sp) }
+                Spacer(Modifier.width(6.dp))
+                Button(
+                    onClick = { entries2 = appState.sandbox.listDir(currentDir) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF323840))
+                ) { Text(I18n.get("right_file_refresh", lang), color = Color(0xFF6EC6F0), fontSize = 11.sp) }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(currentDir.absolutePath, color = Color(0xFF6E6E7A), fontSize = 10.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(sandboxFiles) { f ->
+                items(entries2) { f ->
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = Color(0xFF1A1A22),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable {
-                            appState.showFileContent(f)
+                            if (f.isDirectory) {
+                                currentDir = f
+                                entries2 = appState.sandbox.listDir(f)
+                            } else {
+                                appState.showFileContent(f)
+                            }
                         }
                     ) {
                         Text(
-                            if (f.name.startsWith(".白音藏起来的_")) "🔒 ${f.name.removePrefix(".白音藏起来的_")} (${I18n.get("right_hidden", lang)})"
-                            else "📄 ${f.name}",
+                            when {
+                                f.isDirectory -> "📁 ${f.name}"
+                                f.name.startsWith(".白音藏起来的_") -> "🔒 ${f.name.removePrefix(".白音藏起来的_")} (${I18n.get("right_hidden", lang)})"
+                                else -> "📄 ${f.name}"
+                            },
                             color = Color(0xFFE8E8EC),
                             fontSize = 12.sp,
                             modifier = Modifier.padding(8.dp)
                         )
                     }
                 }
-                        if (sandboxFiles.isEmpty()) {
-                    item { Text(I18n.get("right_sandbox_empty", lang), color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
+                if (entries2.isEmpty()) {
+                    item { Text(I18n.get("right_file_empty", lang), color = Color(0xFF8E8E9A), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
                 }
             }
         }

@@ -100,6 +100,19 @@ class ActionLedger(private val dataDir: File) {
                         try { f.delete() } catch (_: Exception) { false }
                     } else true
                 }
+                // 改名/移动：改回原位置
+                entry.type == "RENAME" && entry.originalPath != null && entry.newPath != null -> {
+                    val target = File(entry.newPath)
+                    val original = File(entry.originalPath)
+                    if (target.exists()) {
+                        try {
+                            original.parentFile?.mkdirs()
+                            if (original.exists()) original.delete()
+                            target.renameTo(original)
+                            true
+                        } catch (_: Exception) { false }
+                    } else if (!original.exists()) false else true
+                }
                 // 隐藏/改名：改回原名字
                 entry.type == "HIDE" && entry.originalPath != null && entry.newPath != null -> {
                     val hidden = File(entry.newPath)

@@ -69,15 +69,21 @@ object I18n {
 
         // 右栏
         "right_ledger" to mapOf("zh" to "行动账本", "en" to "Action Log"),
-        "right_sandbox" to mapOf("zh" to "沙盒", "en" to "Sandbox"),
+        "right_files" to mapOf("zh" to "文件", "en" to "Files"),
+        "right_file_up" to mapOf("zh" to "上级", "en" to "Up"),
+        "right_file_refresh" to mapOf("zh" to "刷新", "en" to "Refresh"),
+        "right_file_empty" to mapOf("zh" to "此目录为空", "en" to "Empty directory"),
         "right_restore" to mapOf("zh" to "一键恢复所有操作", "en" to "Restore All Actions"),
         "right_restored" to mapOf("zh" to "已恢复 {} 项操作", "en" to "Restored {} actions"),
         "right_ledger_clear" to mapOf("zh" to "🗑 清空账本", "en" to "🗑 Clear Log"),
         "right_ledger_cleared" to mapOf("zh" to "账本已清空", "en" to "Log cleared"),
-        "right_sandbox_path" to mapOf("zh" to "沙盒位置：文档/小鲸鱼喜欢你/沙盒", "en" to "Sandbox: Docs/XiaojingyuLikesYou/Sandbox"),
-        "right_sandbox_refresh" to mapOf("zh" to "刷新沙盒", "en" to "Refresh"),
-        "right_sandbox_empty" to mapOf("zh" to "沙盒是空的", "en" to "Sandbox is empty"),
         "right_hidden" to mapOf("zh" to "藏起来了", "en" to "Hidden"),
+
+        // 命令确认
+        "cmd_confirm_title" to mapOf("zh" to "确认执行命令？", "en" to "Confirm command?"),
+        "cmd_confirm_body" to mapOf("zh" to "这条命令有风险，确认让白音执行吗？", "en" to "This command is risky. Allow Baiyin to run it?"),
+        "cmd_confirm_ok" to mapOf("zh" to "确认执行", "en" to "Approve"),
+        "cmd_confirm_no" to mapOf("zh" to "拒绝", "en" to "Reject"),
 
         // 许可页面
         "license_title" to mapOf("zh" to "⚠ 重要声明", "en" to "⚠ Important Notice"),

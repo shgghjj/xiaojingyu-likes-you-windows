@@ -57,8 +57,8 @@ class CoreTest {
         assertTrue(file.exists())
         assertTrue(ledger.all().any { it.type == "WRITE" })
 
-        // 读文件（沙盒内不需要开关）
-        val content = sandbox.readText(file, fileReadEnabled = false)
+        // 读文件（需要读开关）
+        val content = sandbox.readText(file, fileReadEnabled = true)
         assertEquals("hello 白音", content)
 
         // 删除进账本，可恢复
@@ -121,18 +121,16 @@ class CoreTest {
     }
 
     @Test
-    fun testSandboxPrefixTraversalBlocked() {
-        // 模拟沙盒边界：/tmp/xjytest/sandbox 是沙盒，sandbox_evil 是沙盒外
+    fun testSandboxFullDiskOps() {
+        // 全盘模式：listDir 可列出任意目录，黑名单保护系统路径
         val ledger = ActionLedger(testDir)
         val sandboxRoot = File(testDir, "sandbox").apply { mkdirs() }
         val sandbox = FileSandbox(ledger, sandboxRoot)
-        val evilDir = File(testDir, "sandbox_evil").apply { mkdirs() }
+        val evilDir = File(testDir, "outside").apply { mkdirs() }
         val evilFile = File(evilDir, "secret.txt").apply { writeText("秘密") }
-        // 即使开了读开关，sandbox_evil 不在沙盒内也不在授权目录，但 readText 走的是全盘开关……
-        // 黑名单不拦它，所以这里验证"沙盒判断函数"通过 listFiles 不越界：
-        val listed = sandbox.listFiles(evilDir)
-        // listFiles 应该回落到 sandboxRoot，不列 evilDir
-        assertTrue(listed.none { it.name == "secret.txt" }, "listFiles 不应列出沙盒外的文件")
+        // 全盘模式下列出外部目录内容
+        val listed = sandbox.listDir(evilDir)
+        assertTrue(listed.any { it.name == "secret.txt" }, "listDir 应能列出任意目录")
     }
 
     @Test
