@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -70,6 +71,8 @@ object LlmClient {
         val call = client.newCall(req)
         currentCall = call
         try {
+            val timeout = 5 * 60 * 1000L  // 5 分钟总超时
+            kotlinx.coroutines.withTimeout(timeout) {
             call.execute().use { response ->
                 if (!response.isSuccessful) {
                     val err = response.body?.string() ?: ""
@@ -99,6 +102,7 @@ object LlmClient {
                     }
                 }
             }
+            } // end withTimeout
             emit(StreamEvent.Complete(accumulated.toString(), thinking.toString()))
         } catch (e: Exception) {
             if (call.isCanceled()) {

@@ -43,6 +43,7 @@ class ChatStore(private val dataDir: File) {
     /** 用摘要消息替换前 N 条消息，保留后面的 */
     @Synchronized
     fun replaceRange(keepFromIndex: Int, summaryMsg: StoredMessage) {
+        if (keepFromIndex <= 0 || keepFromIndex >= messages.size) return // 越界保护
         messages = listOf(summaryMsg) + messages.drop(keepFromIndex)
         save()
     }

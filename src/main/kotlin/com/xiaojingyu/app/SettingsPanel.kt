@@ -38,6 +38,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
     var autonomyLevel by remember { mutableStateOf(config.autonomyLevel.coerceIn(1, 3)) }
     var ttsSpeed by remember { mutableStateOf(config.ttsSpeed.coerceIn(-10, 10)) }
     var ttsVolume by remember { mutableStateOf(config.ttsVolume.coerceIn(0, 100)) }
+    var boredomThreshold by remember { mutableStateOf(config.boredomThreshold.coerceIn(20, 100)) }
+    var dailyLimit by remember { mutableStateOf(config.dailyProactiveLimit.coerceIn(0, 50)) }
+    var stepLimit by remember { mutableStateOf(config.stepLimit.coerceIn(0, 50)) }
 
     var jailbreakId by remember { mutableStateOf(appState.currentJailbreakId()) }
     var customJailbreak by remember { mutableStateOf("") }
@@ -219,8 +222,21 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                     DropdownMenu(expanded = levelExpanded, onDismissRequest = { levelExpanded = false }) {
                                         levels.forEach { (lv, label) ->
                                             DropdownMenuItem(text = { Text(label, fontSize = 13.sp) }, onClick = { autonomyLevel = lv; levelExpanded = false })
-                                        }
-                                    }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Text(I18n.get("advanced_label", lang), color = Color(0xFF6EC6F0), fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Text("${I18n.get("boredom_threshold_label", lang)}: $boredomThreshold", color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                            Slider(value = boredomThreshold.toFloat(), onValueChange = { boredomThreshold = it.toInt().coerceIn(20, 100) }, valueRange = 20f..100f)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(I18n.get("daily_limit_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                OutlinedTextField(value = dailyLimit.toString(), onValueChange = { it.toIntOrNull()?.coerceIn(0, 50)?.let { v -> dailyLimit = v } }, modifier = Modifier.width(80.dp), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC), fontSize = 13.sp))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(I18n.get("step_limit_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                OutlinedTextField(value = stepLimit.toString(), onValueChange = { it.toIntOrNull()?.coerceIn(0, 50)?.let { v -> stepLimit = v } }, modifier = Modifier.width(80.dp), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFFE8E8EC), fontSize = 13.sp))
+                            }
+                        }
                                 }
                             }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
@@ -315,6 +331,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 ttsSpeed = ttsSpeed, ttsVolume = ttsVolume,
                                 autoActionEnabled = autoAction, fullAutonomyEnabled = fullAutonomy,
                                 autonomyLevel = autonomyLevel,
+                                boredomThreshold = boredomThreshold,
+                                dailyProactiveLimit = dailyLimit,
+                                stepLimit = stepLimit,
                                 authorizedDirs = authDirs,
                                 language = language
                             )
