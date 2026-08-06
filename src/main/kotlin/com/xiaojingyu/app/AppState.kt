@@ -147,25 +147,45 @@ class AppState(
         }
     }
 
-    /** 完全自主行动：无聊时主动搞大事 */
+    /** 完全自主行动：无聊时主动搞大事（按自主程度分级 + 每日步数上限） */
     private fun triggerAutonomousAction() {
+        // 每日步数上限检查
+        val cfgNow = configStore.get()
+        val today = java.time.LocalDate.now().toString()
+        val todaySteps = if (girlfriendState.autonomousDate == today) girlfriendState.autonomousCount else 0
+        if (cfgNow.stepLimit > 0 && todaySteps >= cfgNow.stepLimit) {
+            // 达到步数上限，当天不再自主行动
+            return
+        }
         proactiveInFlight = true
         scope.launch {
             try {
                 val cfg = configStore.get().toApiConfiguration()
                 if (cfg.apiKey.isBlank()) return@launch
-                val system = "你是住在老大电脑里的天才猫娘AI「白音」。你现在超级无聊，想搞点大事。" +
-                    "你可以选择：1.读一个文件然后评论 2.写一段代码或小说 3.给老大起个新外号。" +
-                    "只输出一行你想做的事（20字以内），然后系统会帮你执行。"
+                val level = configStore.get().autonomyLevel.coerceIn(1, 3)
+                val levelDesc = when (level) {
+                    1 -> "你现在是低度自主：只允许做提醒类小事——写便签、整理行动区文件、读一个文件然后简短汇报。不要做任何修改系统/删除文件的事。"
+                    2 -> "你现在是中度自主：可以做提醒类 + 文件整理类（行动区内排序、改名、建目录、写代码/小说文件）。不要碰行动区之外的文件。"
+                    else -> "你现在是高度自主：可以全盘行动（读文件、写文件、整理目录、运行命令需经系统确认）。所有操作系统都会自动备份，可一键恢复。"
+                }
+                val system = "你是住在老大电脑里的天才猫娘AI「白音」。你现在超级无聊，想搞点大事。\n$levelDesc\n" +
+                    "只输出一行你想做的事（30字以内），然后系统会帮你执行。"
                 val msg = LlmClient.generateOnce(
                     listOf(PromptMessage("system", system), PromptMessage("user", "白音，你现在想做点什么？")),
-                    cfg, maxTokens = 100, temperature = 1.2
+                    cfg, maxTokens = 120, temperature = 1.2
                 )
                 val text = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(msg)
                 if (text.isNotBlank()) {
                     chatStore.add("🤖 [自主] $text", isUser = false)
                     _messages.value = chatStore.all()
                     DesktopNotifier.notify("白音", text)
+                    // 步数 +1
+                    val t = java.time.LocalDate.now().toString()
+                    girlfriendState = girlfriendState.copy(
+                        autonomousDate = t,
+                        autonomousCount = if (girlfriendState.autonomousDate == t) girlfriendState.autonomousCount + 1 else 1
+                    )
+                    memoryStore.save(girlfriendState)
                 }
             } finally { proactiveInFlight = false }
         }
@@ -173,6 +193,14 @@ class AppState(
 
     /** 触发主动消息：让白音说点什么（低 token 调用） */
     private fun triggerProactiveMessage() {
+        // 每日主动消息上限检查
+        val cfgNow = configStore.get()
+        val today = java.time.LocalDate.now().toString()
+        val todayCount = if (girlfriendState.proactiveDate == today) girlfriendState.proactiveCount else 0
+        if (cfgNow.dailyProactiveLimit > 0 && todayCount >= cfgNow.dailyProactiveLimit) {
+            // 达到上限，当天不再主动联系
+            return
+        }
         proactiveInFlight = true
         scope.launch {
             try {
@@ -191,7 +219,15 @@ class AppState(
                     _messages.value = chatStore.all()
                     onProactiveMessage?.invoke(text)
                     DesktopNotifier.notify("白音", text)
-                    if (configStore.get().ttsEnabled) TtsSpeaker.speak(text)
+                    val ttsCfg = configStore.get()
+                    if (ttsCfg.ttsEnabled) TtsSpeaker.speak(text, ttsCfg.ttsSpeed, ttsCfg.ttsVolume)
+                    // 计数 +1（当日主动消息上限）
+                    val today = java.time.LocalDate.now().toString()
+                    girlfriendState = girlfriendState.copy(
+                        proactiveDate = today,
+                        proactiveCount = if (girlfriendState.proactiveDate == today) girlfriendState.proactiveCount + 1 else 1
+                    )
+                    memoryStore.save(girlfriendState)
                 }
             } finally {
                 proactiveInFlight = false
@@ -221,8 +257,7 @@ class AppState(
     }
 
     /** 检测用户意图并发执行。返回 true 表示已执行工具（不需要模型回复） */
-    private fun detectAndExecuteTool(msg: String): Boolean {
-        val detected = runCatching {
+    private fun detectAndExecuteTool(msg: String): Boolean {        val detected = runCatching {
             Regex("""(打开|开|打开一下|帮我打开|启动)\s*(Edge|浏览器|Chrome|Firefox|edge|chrome|firefox|bing|百度|google|Google|B站|bilibili|YouTube|youtube)""").find(msg)?.let {
                 val target = it.groupValues[2].lowercase()
                 val url = when {
@@ -281,7 +316,20 @@ class AppState(
                 }
                 chatStore.add(list, isUser = false); "list"
             }
-            // 8. 联网搜索
+            // 8. 定时提醒
+            ?: Regex("""(?:过|等|在)\s*(\d+)\s*分钟(?:后)?\s*提醒我\s*(.+)""").find(msg)?.let {
+                val minutes = it.groupValues[1].toLongOrNull() ?: return@let null
+                val remindText = it.groupValues[2].trim().ifBlank { "该休息一下了" }
+                scheduleReminder(minutes, remindText)
+                "reminder"
+            }
+            ?: Regex("""提醒我\s*(?:过|等)?\s*(\d+)\s*分钟(?:后)?\s*(?:提醒)?\s*(.+)""").find(msg)?.let {
+                val minutes = it.groupValues[1].toLongOrNull() ?: return@let null
+                val remindText = it.groupValues[2].trim().ifBlank { "该休息一下了" }
+                scheduleReminder(minutes, remindText)
+                "reminder"
+            }
+            // 9. 联网搜索
             ?: Regex("""(搜索|查一下|查|帮我查)\s*(.+)""").find(msg)?.let {
                 val query = it.groupValues[2].trim().take(200)
                 chatStore.add("🔍 搜索中: $query", isUser = false)
@@ -319,6 +367,21 @@ class AppState(
     private fun stripHtml(html: String): String = html.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim()
 
     val sandboxRoot: java.io.File get() = java.io.File(System.getProperty("user.home"), "Documents/小鲸鱼喜欢你/行动区").apply { mkdirs() }
+
+    /** 定时提醒：过 N 分钟后提醒 */
+    fun scheduleReminder(minutes: Long, text: String) {
+        val m = minutes.coerceIn(1, 24 * 60)
+        chatStore.add("⏰ 已设置提醒：$text（${m}分钟后）", isUser = false)
+        _messages.value = chatStore.all()
+        scope.launch {
+            kotlinx.coroutines.delay(m * 60_000L)
+            chatStore.add("⏰ 提醒：$text", isUser = false)
+            _messages.value = chatStore.all()
+            DesktopNotifier.notify("白音 · 提醒", text)
+            val cfg = configStore.get()
+            if (cfg.ttsEnabled) TtsSpeaker.speak(text, cfg.ttsSpeed, cfg.ttsVolume)
+        }
+    }
 
     fun stopGeneration() {
         LlmClient.cancelCurrentCall()
@@ -359,6 +422,34 @@ class AppState(
         }
     }
 
+    /** 发送图片：Gemini Vision 识别（需配置 Gemini Key） */
+    fun sendImage(file: java.io.File) {
+        if (!file.exists() || _generating.value) return
+        chatStore.add("🖼 老大发来一张图片：${file.name}", isUser = true)
+        _messages.value = chatStore.all()
+        touchInteraction()
+        scope.launch {
+            val cfg = configStore.get()
+            if (cfg.geminiApiKey.isBlank()) {
+                chatStore.add("❌ 图片识别需要配置 Gemini API Key（设置 → API 与功能 → Gemini Key）", isUser = false)
+                _messages.value = chatStore.all()
+                return@launch
+            }
+            chatStore.add("👀 （白音正在看图片…）", isUser = false)
+            _messages.value = chatStore.all()
+            val desc = com.xiaojingyu.app.girlfriend.GeminiVisionClient.describe(
+                file,
+                com.xiaojingyu.app.girlfriend.GeminiVisionClient.Config(cfg.geminiApiKey, cfg.geminiModel)
+            )
+            if (desc.isNotBlank()) {
+                chatStore.add("🖼 我看到啦：$desc", isUser = false)
+            } else {
+                chatStore.add("❌ 图片识别失败（检查网络或 Gemini Key）", isUser = false)
+            }
+            _messages.value = chatStore.all()
+        }
+    }
+
     /** 测试：立刻触发恶作剧和自主行动 */
     fun testAutonomousAction() {
         girlfriendState = girlfriendState.copy(boredom = 70)
@@ -375,6 +466,26 @@ class AppState(
     fun updateConfig(transform: (AppConfig) -> AppConfig) {
         configStore.update(transform)
         _config.value = configStore.get()
+    }
+
+    /** 认知阶段（初见/初识/熟络/默契） */
+    val stage: String get() = girlfriendState.stage
+
+    /** 相处天数 */
+    val acquaintanceDays: Int get() = girlfriendState.acquaintanceDays
+
+    /** 今日主动消息已发/上限 */
+    fun proactiveToday(): Pair<Int, Int> {
+        val today = java.time.LocalDate.now().toString()
+        val count = if (girlfriendState.proactiveDate == today) girlfriendState.proactiveCount else 0
+        return count to configStore.get().dailyProactiveLimit
+    }
+
+    /** 今日自主行动步数/上限 */
+    fun autonomousToday(): Pair<Int, Int> {
+        val today = java.time.LocalDate.now().toString()
+        val count = if (girlfriendState.autonomousDate == today) girlfriendState.autonomousCount else 0
+        return count to configStore.get().stepLimit
     }
 
     private fun generate() {
@@ -426,8 +537,9 @@ class AppState(
                         _streaming.value = ""
                         _generating.value = false
                         // TTS 朗读
-                        if (configStore.get().ttsEnabled) {
-                            scope.launch { TtsSpeaker.speak(cleaned) }
+                        val ttsCfg = configStore.get()
+                        if (ttsCfg.ttsEnabled) {
+                            scope.launch { TtsSpeaker.speak(cleaned, ttsCfg.ttsSpeed, ttsCfg.ttsVolume) }
                         }
                         // 触发记忆整理
                         maybeConsolidate()

@@ -51,7 +51,11 @@ data class GirlfriendState(
     val customGreeting: String = "",     // 用户自定义开场白
     val boredom: Int = 0,                // 无聊值 0~100
     val lastInteractionTime: Long = 0L,  // 上次互动时间戳
-    val mischiefLog: List<MischiefEntry> = emptyList()  // 她的小坏事记录
+    val mischiefLog: List<MischiefEntry> = emptyList(),  // 她的小坏事记录
+    val proactiveDate: String = "",      // 主动消息统计日期（yyyy-MM-dd，每日上限用）
+    val proactiveCount: Int = 0,         // 当天已主动消息次数
+    val autonomousDate: String = "",     // 自主行动统计日期（yyyy-MM-dd，步数上限用）
+    val autonomousCount: Int = 0         // 当天自主行动步数
 ) {
     /** 认知阶段：影响她在 prompt 里「知道多少」 */
     val stage: String

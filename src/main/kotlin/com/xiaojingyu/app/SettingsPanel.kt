@@ -34,6 +34,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
     var language by remember { mutableStateOf(config.language) }
     var autoAction by remember { mutableStateOf(config.autoActionEnabled) }
     var fullAutonomy by remember { mutableStateOf(config.fullAutonomyEnabled) }
+    var autonomyLevel by remember { mutableStateOf(config.autonomyLevel.coerceIn(1, 3)) }
+    var ttsSpeed by remember { mutableStateOf(config.ttsSpeed.coerceIn(-10, 10)) }
+    var ttsVolume by remember { mutableStateOf(config.ttsVolume.coerceIn(0, 100)) }
 
     var jailbreakId by remember { mutableStateOf(appState.currentJailbreakId()) }
     var customJailbreak by remember { mutableStateOf("") }
@@ -183,6 +186,13 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 }
                             } else {
                                 SwitchRow(I18n.get("tts_label", lang), I18n.get("tts_desc", lang), ttsEnabled) { ttsEnabled = it }
+                                if (ttsEnabled) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(I18n.get("tts_speed_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                                    Slider(value = ttsSpeed.toFloat(), onValueChange = { ttsSpeed = it.toInt().coerceIn(-10, 10) }, valueRange = -10f..10f)
+                                    Text(I18n.get("tts_volume_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                                    Slider(value = ttsVolume.toFloat(), onValueChange = { ttsVolume = it.toInt().coerceIn(0, 100) }, valueRange = 0f..100f)
+                                }
                             }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
                             SwitchRow(I18n.get("file_read_label", lang), I18n.get("file_read_desc", lang), fileRead) {
@@ -192,6 +202,26 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                             SwitchRow(I18n.get("auto_action_label", lang), I18n.get("auto_action_desc", lang), autoAction) { autoAction = it }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
                             SwitchRow(I18n.get("auto_full_label", lang), I18n.get("auto_full_desc", lang), fullAutonomy) { fullAutonomy = it }
+                            if (fullAutonomy) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(I18n.get("autonomy_level_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
+                                val levels = listOf(
+                                    1 to I18n.get("autonomy_low", lang),
+                                    2 to I18n.get("autonomy_mid", lang),
+                                    3 to I18n.get("autonomy_high", lang)
+                                )
+                                var levelExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    Button(onClick = { levelExpanded = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A1A22)), modifier = Modifier.fillMaxWidth()) {
+                                        Text(levels.firstOrNull { it.first == autonomyLevel }?.second ?: I18n.get("autonomy_low", lang), color = Color(0xFF6EC6F0), fontSize = 13.sp)
+                                    }
+                                    DropdownMenu(expanded = levelExpanded, onDismissRequest = { levelExpanded = false }) {
+                                        levels.forEach { (lv, label) ->
+                                            DropdownMenuItem(text = { Text(label, fontSize = 13.sp) }, onClick = { autonomyLevel = lv; levelExpanded = false })
+                                        }
+                                    }
+                                }
+                            }
                             HorizontalDivider(color = Color(0xFF252530), modifier = Modifier.padding(vertical = 6.dp))
 
                             Text(I18n.get("gemini_label", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
@@ -281,7 +311,9 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                                 proactiveEnabled = proactive, fileReadEnabled = fileRead,
                                 geminiApiKey = geminiKey.trim(),
                                 ttsEnabled = if (isDeepSeek) false else ttsEnabled,
+                                ttsSpeed = ttsSpeed, ttsVolume = ttsVolume,
                                 autoActionEnabled = autoAction, fullAutonomyEnabled = fullAutonomy,
+                                autonomyLevel = autonomyLevel,
                                 authorizedDirs = authDirs,
                                 language = language
                             )

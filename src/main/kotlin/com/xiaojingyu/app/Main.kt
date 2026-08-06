@@ -71,6 +71,9 @@ fun App() {
 @Composable
 private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Unit) {
     val boredom by appState.boredom.collectAsState()
+    val config by appState.config.collectAsState()
+    val proactiveToday = remember { appState.proactiveToday() }
+    val autonomousToday = remember { appState.autonomousToday() }
 
     Column(
         modifier = Modifier
@@ -116,6 +119,34 @@ private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Un
         }
 
         Spacer(Modifier.height(6.dp))
+
+        // 状态灯：API / 文件读取 / 自动化 / 完全自主 / TTS
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusDot("API", config.apiKey.isNotBlank())
+            Spacer(Modifier.width(10.dp))
+            StatusDot(I18n.get("status_file", lang), config.fileReadEnabled)
+            Spacer(Modifier.width(10.dp))
+            StatusDot(I18n.get("status_auto", lang), config.autoActionEnabled)
+            Spacer(Modifier.width(10.dp))
+            StatusDot(I18n.get("status_full", lang), config.fullAutonomyEnabled)
+            Spacer(Modifier.width(10.dp))
+            StatusDot("TTS", config.ttsEnabled)
+        }
+        Spacer(Modifier.height(8.dp))
+
+        // 认知阶段
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${I18n.get("stage_label", lang)}：${appState.stage}", color = Color(0xFF6EC6F0), fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            Text("${I18n.get("stage_days", lang)} ${appState.acquaintanceDays}", color = Color(0xFF5E5E6A), fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "${I18n.get("status_proactive", lang)} ${proactiveToday.first}/${proactiveToday.second} · ${I18n.get("status_steps", lang)} ${autonomousToday.first}/${autonomousToday.second}",
+            color = Color(0xFF5E5E6A), fontSize = 10.sp
+        )
+        Spacer(Modifier.height(8.dp))
+
         // 测试自主行动按钮
         OutlinedButton(
             onClick = { appState.testAutonomousAction() },
@@ -332,6 +363,25 @@ private fun ChatPanel(appState: AppState, lang: String) {
                 })
             )
             Spacer(Modifier.width(8.dp))
+            // 图片发送（Gemini Vision）
+            IconButton(
+                onClick = {
+                    if (!generating) {
+                        val dialog = java.awt.FileDialog(java.awt.Frame(), I18n.get("send_image", lang), java.awt.FileDialog.LOAD)
+                        dialog.file = "*.png;*.jpg;*.jpeg;*.gif;*.webp"
+                        dialog.isVisible = true
+                        if (dialog.file != null) {
+                            val img = java.io.File(dialog.directory, dialog.file)
+                            appState.sendImage(img)
+                        }
+                    }
+                },
+                enabled = !generating,
+                modifier = Modifier.background(Color(0xFF323840), RoundedCornerShape(24.dp))
+            ) {
+                Text("📎", fontSize = 14.sp)
+            }
+            Spacer(Modifier.width(6.dp))
             if (generating) {
                 IconButton(
                     onClick = { appState.stopGeneration() },
@@ -642,4 +692,16 @@ private fun TabButton(label: String, selected: Boolean, onClick: () -> Unit) {
         ),
         modifier = Modifier.height(32.dp)
     ) { Text(label, fontSize = 12.sp) }
+}
+
+@Composable
+private fun StatusDot(label: String, active: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(if (active) Color(0xFF3BCE6F) else Color(0xFF3A3A44), RoundedCornerShape(5.dp))
+        )
+        Text(label, color = Color(0xFF6E6E7A), fontSize = 9.sp)
+    }
 }

@@ -25,7 +25,11 @@ data class AppConfig(
     val quietHoursStart: Int = 23,  // 安静时段 23:00
     val quietHoursEnd: Int = 7,     // 到 7:00
     val dailyProactiveLimit: Int = 10,
+    val stepLimit: Int = 10,  // 每日自主行动步数上限
+    val autonomyLevel: Int = 1,  // 自主程度 1=低 2=中 3=高
     val ttsEnabled: Boolean = false,  // 语音朗读开关（默认关闭）
+    val ttsSpeed: Int = 0,  // TTS 语速 -10~10
+    val ttsVolume: Int = 90,  // TTS 音量 0~100
     val authorizedDirs: List<String> = emptyList(),  // 用户授权的额外工作目录
     val licenseAccepted: Boolean = false,  // 首次启动许可是否已接受
     val language: String = "zh"  // 界面语言 zh/en
