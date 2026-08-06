@@ -94,7 +94,9 @@ class FileSandbox(
 
     private fun write(file: File, content: String): File? {
         return try {
-            val backup = ledger.backupFile(file)
+            val existed = file.exists()
+            val backup = if (existed) ledger.backupFile(file) else null
+            if (existed && backup == null) return null // 已存在文件无法备份，拒绝写入
             file.parentFile?.mkdirs()
             file.writeText(content)
             ledger.record("WRITE", "写了文件「${file.name}」", originalPath = file.absolutePath, backupPath = backup)
@@ -109,6 +111,7 @@ class FileSandbox(
         if (!canAccess(file)) return false
         return try {
             val backup = ledger.backupFile(file)
+            if (backup == null) return false // 备份失败，拒绝删除
             file.delete()
             ledger.record("DELETE", "删除了文件「${file.name}」", originalPath = file.absolutePath, backupPath = backup)
             true
@@ -140,7 +143,7 @@ class FileSandbox(
     /** 改名/移动（全盘） */
     fun renameFile(from: File, to: File): Boolean {
         if (!from.exists()) return false
-        if (!canAccess(from)) return false
+        if (!canAccess(from) || !canAccess(to)) return false
         return try {
             to.parentFile?.mkdirs()
             if (from.renameTo(to)) {

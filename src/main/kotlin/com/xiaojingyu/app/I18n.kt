@@ -72,6 +72,7 @@ object I18n {
         "memory_memories" to mapOf("zh" to "共同回忆", "en" to "Shared Memories"),
         "memory_clear_memories" to mapOf("zh" to "清空回忆", "en" to "Clear Memories"),
         "memory_empty" to mapOf("zh" to "（空）", "en" to "(Empty)"),
+        "memory_clear_confirm" to mapOf("zh" to "确认清空？此操作不可恢复。", "en" to "Confirm clear? This action cannot be undone."),
 
         // 右栏
         "right_ledger" to mapOf("zh" to "行动账本", "en" to "Action Log"),

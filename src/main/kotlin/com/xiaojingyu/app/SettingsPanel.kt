@@ -20,17 +20,18 @@ import java.io.File
 fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () -> Unit) {
     val config by appState.config.collectAsState()
     val lang = config.language
-    val isDeepSeek = config.chatCompletionSource.isBlank() || config.chatCompletionSource.lowercase() == "deepseek"
-        || config.currentModel.lowercase().contains("deepseek")
     var tab by remember { mutableStateOf(0) }
 
     var apiKey by remember { mutableStateOf(config.apiKey) }
     var model by remember { mutableStateOf(config.currentModel) }
+    val isDeepSeek = model.lowercase().contains("deepseek")
     var proactive by remember { mutableStateOf(config.proactiveEnabled) }
     var fileRead by remember { mutableStateOf(config.fileReadEnabled) }
     var showFileConfirm by remember { mutableStateOf(false) }
+    var showClearFacts by remember { mutableStateOf(false) }
+    var showClearMemories by remember { mutableStateOf(false) }
     var geminiKey by remember { mutableStateOf(config.geminiApiKey) }
-    var ttsEnabled by remember { mutableStateOf(config.ttsEnabled && !isDeepSeek) }
+    var ttsEnabled by remember { mutableStateOf(config.ttsEnabled) }
     var language by remember { mutableStateOf(config.language) }
     var autoAction by remember { mutableStateOf(config.autoActionEnabled) }
     var fullAutonomy by remember { mutableStateOf(config.fullAutonomyEnabled) }
@@ -280,14 +281,14 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
                         }
                         2 -> {
                             Text(I18n.get("memory_facts", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            Button(onClick = { appState.clearFacts(); facts = appState.factsSnapshot() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
+                            Button(onClick = { showClearFacts = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
                                 Text(I18n.get("memory_clear_facts", lang), color = Color(0xFFE54860), fontSize = 12.sp)
                             }
                             facts.forEach { Text("· $it", color = Color(0xFFE8E8EC), fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)) }
                             if (facts.isEmpty()) Text(I18n.get("memory_empty", lang), color = Color(0xFF8E8E9A), fontSize = 12.sp)
                             Spacer(Modifier.height(12.dp))
                             Text(I18n.get("memory_memories", lang), color = Color(0xFF9A9AA4), fontSize = 12.sp)
-                            Button(onClick = { appState.clearMemories(); memories = appState.memoriesSnapshot() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
+                            Button(onClick = { showClearMemories = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A303A))) {
                                 Text(I18n.get("memory_clear_memories", lang), color = Color(0xFFE54860), fontSize = 12.sp)
                             }
                             memories.forEach { Text("· $it", color = Color(0xFFE8E8EC), fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)) }
@@ -332,6 +333,26 @@ fun SettingsPanel(appState: AppState, configStore: ConfigStore, onDismiss: () ->
             text = { Text(I18n.get("error_file_confirm_body", lang), color = Color(0xFF9A9AA4)) },
             confirmButton = { TextButton(onClick = { fileRead = true; showFileConfirm = false }) { Text(I18n.get("error_file_confirm_ok", lang), color = Color(0xFF6EC6F0)) } },
             dismissButton = { TextButton(onClick = { showFileConfirm = false }) { Text(I18n.get("cancel", lang), color = Color(0xFF8E8E9A)) } },
+            containerColor = Color(0xFF14141A)
+        )
+    }
+    if (showClearFacts) {
+        AlertDialog(
+            onDismissRequest = { showClearFacts = false },
+            title = { Text(I18n.get("memory_clear_facts", lang), color = Color(0xFFE8E8EC)) },
+            text = { Text(I18n.get("memory_clear_confirm", lang), color = Color(0xFF9A9AA4)) },
+            confirmButton = { TextButton(onClick = { appState.clearFacts(); facts = appState.factsSnapshot(); showClearFacts = false }) { Text(I18n.get("clear_chat_ok", lang), color = Color(0xFFE54860)) } },
+            dismissButton = { TextButton(onClick = { showClearFacts = false }) { Text(I18n.get("cancel", lang), color = Color(0xFF8E8E9A)) } },
+            containerColor = Color(0xFF14141A)
+        )
+    }
+    if (showClearMemories) {
+        AlertDialog(
+            onDismissRequest = { showClearMemories = false },
+            title = { Text(I18n.get("memory_clear_memories", lang), color = Color(0xFFE8E8EC)) },
+            text = { Text(I18n.get("memory_clear_confirm", lang), color = Color(0xFF9A9AA4)) },
+            confirmButton = { TextButton(onClick = { appState.clearMemories(); memories = appState.memoriesSnapshot(); showClearMemories = false }) { Text(I18n.get("clear_chat_ok", lang), color = Color(0xFFE54860)) } },
+            dismissButton = { TextButton(onClick = { showClearMemories = false }) { Text(I18n.get("cancel", lang), color = Color(0xFF8E8E9A)) } },
             containerColor = Color(0xFF14141A)
         )
     }

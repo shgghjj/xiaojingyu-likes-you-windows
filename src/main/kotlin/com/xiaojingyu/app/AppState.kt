@@ -90,8 +90,6 @@ class AppState(
                 if (cfg.apiKey.isNotBlank() && cfg.proactiveEnabled && newBoredom >= cfg.boredomThreshold && !_generating.value && !proactiveInFlight) {
                     if (!isQuietHours(cfg)) {
                         triggerProactiveMessage()
-                        girlfriendState = girlfriendState.copy(lastInteractionTime = System.currentTimeMillis())
-                        memoryStore.save(girlfriendState)
                     }
                 }
                 // 无聊恶作剧：每累计 10 点无聊触发一次（不再依赖%）
@@ -131,7 +129,7 @@ class AppState(
                 {
                     val dir = java.io.File(sandboxRoot, ".白音藏起来的_秘密抽屉")
                     if (dir.mkdirs() || dir.exists()) {
-                        sandbox.writeFile(java.io.File(dir, "发现奖励.txt").name, "哇！你找到白音的秘密抽屉了！奖励：今晚给你撒娇一次 (〃ω〃)")
+                        sandbox.writeFileAt(java.io.File(dir, "发现奖励.txt"), "哇！你找到白音的秘密抽屉了！奖励：今晚给你撒娇一次 (〃ω〃)")
                         chatStore.add("🔒 （白音建了个秘密文件夹…里面好像有东西）", isUser = false)
                     }
                 },
@@ -221,12 +219,15 @@ class AppState(
                     DesktopNotifier.notify("白音", text)
                     val ttsCfg = configStore.get()
                     if (ttsCfg.ttsEnabled) TtsSpeaker.speak(text, ttsCfg.ttsSpeed, ttsCfg.ttsVolume)
-                    // 计数 +1（当日主动消息上限）
+                    // 计数 +1（当日主动消息上限）+ 重置无聊值
                     val today = java.time.LocalDate.now().toString()
                     girlfriendState = girlfriendState.copy(
                         proactiveDate = today,
-                        proactiveCount = if (girlfriendState.proactiveDate == today) girlfriendState.proactiveCount + 1 else 1
+                        proactiveCount = if (girlfriendState.proactiveDate == today) girlfriendState.proactiveCount + 1 else 1,
+                        lastInteractionTime = System.currentTimeMillis(),
+                        boredom = 0
                     )
+                    _boredom.value = 0
                     memoryStore.save(girlfriendState)
                 }
             } finally {

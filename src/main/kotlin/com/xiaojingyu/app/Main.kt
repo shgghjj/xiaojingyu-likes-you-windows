@@ -11,9 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -72,8 +69,8 @@ fun App() {
 private fun LeftPanel(appState: AppState, lang: String, onOpenSettings: () -> Unit) {
     val boredom by appState.boredom.collectAsState()
     val config by appState.config.collectAsState()
-    val proactiveToday = remember { appState.proactiveToday() }
-    val autonomousToday = remember { appState.autonomousToday() }
+    val proactiveToday = appState.proactiveToday()
+    val autonomousToday = appState.autonomousToday()
 
     Column(
         modifier = Modifier
@@ -431,8 +428,8 @@ private fun MessageBubble(msg: StoredMessage, appState: AppState, index: Int) {
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
             )
         }
-        IconButton(onClick = { appState.deleteMessage(index) }, modifier = Modifier.size(14.dp)) {
-            Text("𐄂", color = Color(0xFFE54860), fontSize = 9.sp)
+        IconButton(onClick = { appState.deleteMessage(index) }, modifier = Modifier.size(18.dp)) {
+            Text("✕", color = Color(0xFFE54860), fontSize = 12.sp)
         }
     }
 }
