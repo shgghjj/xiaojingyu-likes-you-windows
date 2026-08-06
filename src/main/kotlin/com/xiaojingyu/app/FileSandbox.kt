@@ -32,7 +32,7 @@ class FileSandbox(
             "\\Windows\\", "Program Files", "\\System32", ".ssh", "AppData\\Local\\Google\\Chrome",
             "AppData\\Roaming\\Mozilla", "NTUSER.DAT", "System Volume Information",
             "\\\$Recycle.Bin", "\\Windows", "pagefile.sys", "hiberfil.sys",
-            "Documents and Settings"
+            "Documents and Settings", "\\.git\\", "\\.svn\\", "\\.hg\\"
         )
     }
 

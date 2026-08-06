@@ -125,6 +125,7 @@ object I18n {
 
         // 错误提示
         "error_no_api" to mapOf("zh" to "请先在设置中配置 API Key", "en" to "Please configure your API Key in Settings"),
+        "error_empty_reply" to mapOf("zh" to "白音这次没说出话来（模型返回了空回复），请再试一次", "en" to "Baiyin didn't get a response (empty reply). Please try again."),
         "error_file_confirm_title" to mapOf("zh" to "允许白音读取你的文件？", "en" to "Allow Baiyin to read your files?"),
         "error_file_confirm_body" to mapOf("zh" to "开启后她可以读取你电脑上任何位置的文本文件。\n\n随时可在设置中一键关闭。", "en" to "She will be able to read text files anywhere on your PC.\n\nYou can disable this anytime in Settings."),
         "error_file_confirm_ok" to mapOf("zh" to "确认开启", "en" to "Enable"),

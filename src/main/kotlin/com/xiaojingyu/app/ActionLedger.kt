@@ -100,7 +100,7 @@ class ActionLedger(private val dataDir: File) {
                         try { f.delete() } catch (_: Exception) { false }
                     } else true
                 }
-                // 改名/移动：改回原位置
+                // 改名/移动：改回原位置（跨盘 fallback 到备份还原）
                 entry.type == "RENAME" && entry.originalPath != null && entry.newPath != null -> {
                     val target = File(entry.newPath)
                     val original = File(entry.originalPath)
@@ -108,8 +108,16 @@ class ActionLedger(private val dataDir: File) {
                         try {
                             original.parentFile?.mkdirs()
                             if (original.exists()) original.delete()
-                            target.renameTo(original)
-                            true
+                            val renamed = target.renameTo(original)
+                            if (!renamed && entry.backupPath != null) {
+                                // 跨盘改名失败，用备份还原 → 删改过名的文件
+                                val backup = File(entry.backupPath)
+                                if (backup.exists()) {
+                                    backup.copyTo(original, overwrite = true)
+                                    target.delete()
+                                    true
+                                } else false
+                            } else renamed
                         } catch (_: Exception) { false }
                     } else if (!original.exists()) false else true
                 }

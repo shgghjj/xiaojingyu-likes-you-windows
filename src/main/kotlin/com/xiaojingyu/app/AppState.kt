@@ -310,7 +310,7 @@ class AppState(
                 "write"
             }
             // 7. 列文件（行动区浏览）
-            ?: Regex("""(看看|列一下|列出|浏览|有什么|看看有什么|打开沙盒|打开行动区)\s*(?:沙盒|文件|文件夹|目录)?\s*$""").find(msg)?.let {
+            ?: Regex("""(看看|列一下|列出|浏览|查看|查|找|有什么|看看有什么|打开沙盒|打开行动区)\s*(?:沙盒|文件|文件夹|目录)?\s*$""").find(msg)?.let {
                 val files = sandbox.listDir(sandboxRoot)
                 val list = if (files.isEmpty()) "行动区是空的" else files.joinToString("\n") {
                     if (it.isDirectory) "📁 ${it.name}" else "📄 ${it.name} (${it.length()}B)"
@@ -331,7 +331,7 @@ class AppState(
                 "reminder"
             }
             // 9. 联网搜索
-            ?: Regex("""(搜索|查一下|查|帮我查)\s*(.+)""").find(msg)?.let {
+            ?: Regex("""(搜索|查一下|帮我查)\s*(.+)""").find(msg)?.let {
                 val query = it.groupValues[2].trim().take(200)
                 chatStore.add("🔍 搜索中: $query", isUser = false)
                 scope.launch {
@@ -455,8 +455,8 @@ class AppState(
     fun testAutonomousAction() {
         girlfriendState = girlfriendState.copy(boredom = 70)
         _boredom.value = 70
-        lastMischiefBoredom = 0
-        lastAutonomousBoredom = 0
+        lastMischiefBoredom = 70   // 防下次循环重复触发
+        lastAutonomousBoredom = 70
         triggerBoredomMischief()
         scope.launch {
             kotlinx.coroutines.delay(2000)
@@ -496,7 +496,7 @@ class AppState(
         generationJob = scope.launch {
             val cfg = configStore.get().toApiConfiguration()
             if (cfg.apiKey.isBlank()) {
-                _error.value = "请先在设置中配置 API Key"
+                _error.value = I18n.get("error_no_api", configStore.get().language)
                 _generating.value = false
                 return@launch
             }
@@ -528,7 +528,7 @@ class AppState(
                         val full = e.fullText
                         val cleaned = com.xiaojingyu.app.model.StructuredReplyParserDesktop.sanitize(full)
                         if (cleaned.isBlank()) {
-                            _error.value = "白音这次没说出话来（模型返回了空回复），请再试一次"
+                            _error.value = I18n.get("error_empty_reply", configStore.get().language)
                             _generating.value = false
                             _streaming.value = ""
                             return@collect
@@ -606,7 +606,7 @@ class AppState(
             if (clean.isNotBlank()) {
                 // 竞态防护：异步期间消息可能已变（用户新消息/主动消息），重新校验再替换
                 val current = chatStore.all()
-                if (current.size < msgs.size) return@launch // 已被其他总结替换过
+                if (current.size < msgs.size || splitIdx >= current.size) return@launch // 已被修改过，放弃替换
                 val summaryMsg = StoredMessage("📝 历史摘要: $clean", false, System.currentTimeMillis())
                 chatStore.replaceRange(splitIdx, summaryMsg)
                 _messages.value = chatStore.all()
